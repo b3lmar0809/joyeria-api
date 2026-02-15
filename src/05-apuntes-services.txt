@@ -1,0 +1,384 @@
+================================================================================
+                    05 - SERVICES (Lógica de Negocio)
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+¿Qué es un Service?
+- Capa que contiene la LÓGICA DE NEGOCIO de tu aplicación
+- Se encuentra entre el Controller y el Repository
+- Coordina múltiples repositorios
+- Aplica reglas de negocio
+- Maneja transacciones
+
+FLUJO DE DATOS:
+Controller → Service → Repository → Base de Datos
+   ↓           ↓           ↓
+ HTTP      Lógica      SQL
+
+================================================================================
+ANOTACIONES PRINCIPALES
+================================================================================
+
+@Service
+- Marca la clase como un servicio de Spring
+- Spring la detecta automáticamente (component scanning)
+- La gestiona como un bean (singleton por defecto)
+Ejemplo:
+  @Service
+  public class ProductService { ... }
+
+@Transactional
+- Asegura que las operaciones de BD sean transaccionales
+- Si algo falla, hace ROLLBACK automático
+- Si todo sale bien, hace COMMIT
+- Puedes ponerla a nivel de clase o método
+Ejemplo:
+  @Transactional
+  public Order createOrder(Order order) { ... }
+
+@Transactional(readOnly = true)
+- Optimiza consultas de solo lectura
+- No hace lock de escritura en la BD
+- Mejora el rendimiento
+- Usa para métodos GET
+Ejemplo:
+  @Transactional(readOnly = true)
+  public List<Product> getAllProducts() { ... }
+
+================================================================================
+INYECCIÓN DE DEPENDENCIAS
+================================================================================
+
+Hay 3 formas de inyectar dependencias en Spring:
+
+1. Field Injection con @Autowired (❌ NO RECOMENDADO)
+@Service
+public class ProductService {
+    @Autowired
+    private ProductRepository productRepository;
+}
+
+Problemas:
+- Dificulta los tests (necesitas Mockito con @InjectMocks)
+- No puedes crear instancias sin Spring
+- No garantiza que las dependencias no sean null
+- No es inmutable
+- Oculta las dependencias
+
+2. Setter Injection (❌ NO RECOMENDADO)
+@Service
+public class ProductService {
+    private ProductRepository productRepository;
+    
+    @Autowired
+    public void setProductRepository(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+}
+
+3. Constructor Injection (✅ RECOMENDADO - MEJOR PRÁCTICA)
+@Service
+public class ProductService {
+    private final ProductRepository productRepository;
+    
+    public ProductService(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+}
+
+Ventajas de Constructor Injection:
+✅ Fácil de testear (puedes crear mocks sin Spring)
+✅ Inmutable (final = no puede cambiar)
+✅ Explícito (ves todas las dependencias)
+✅ No necesitas @Autowired (Spring lo detecta desde 4.3+)
+✅ Garantiza que las dependencias nunca sean null
+✅ Puedes crear instancias manualmente: new ProductService(repo)
+
+4. Constructor Injection con Lombok (✅ MÁS RECOMENDADO)
+@Service
+@RequiredArgsConstructor  // Genera el constructor automáticamente
+public class ProductService {
+    private final ProductRepository productRepository;
+    private final CategoryService categoryService;
+    
+    // Lombok genera esto automáticamente:
+    // public ProductService(ProductRepository productRepository, 
+    //                       CategoryService categoryService) {
+    //     this.productRepository = productRepository;
+    //     this.categoryService = categoryService;
+    // }
+}
+
+@RequiredArgsConstructor genera un constructor con todos los campos:
+- Marcados como final
+- Marcados con @NonNull
+
+COMPARACIÓN EN TESTS:
+
+Con @Autowired (complicado):
+@ExtendWith(MockitoExtension.class)
+class ProductServiceTest {
+    @InjectMocks
+    private ProductService productService;
+    
+    @Mock
+    private ProductRepository productRepository;
+}
+
+Con Constructor Injection (simple):
+class ProductServiceTest {
+    private ProductService productService;
+    private ProductRepository productRepository;
+    
+    @BeforeEach
+    void setUp() {
+        productRepository = mock(ProductRepository.class);
+        productService = new ProductService(productRepository);
+    }
+}
+
+================================================================================
+ESTRUCTURA TÍPICA DE UN SERVICE
+================================================================================
+
+@Service
+@Transactional
+@RequiredArgsConstructor  // ← Genera constructor automáticamente
+public class ProductService {
+    
+    // private final = inmutable
+    private final ProductRepository productRepository;
+    
+    // CREATE
+    public Product create(Product product) {
+        // 1. Validaciones
+        // 2. Lógica de negocio
+        // 3. Guardar
+        return productRepository.save(product);
+    }
+    
+    // READ
+    @Transactional(readOnly = true)
+    public Product getById(Long id) {
+        return productRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("No encontrado"));
+    }
+    
+    // UPDATE
+    public Product update(Long id, Product details) {
+        Product existing = getById(id);
+        // actualizar campos
+        return productRepository.save(existing);
+    }
+    
+    // DELETE
+    public void delete(Long id) {
+        Product product = getById(id);
+        product.setActive(false); // soft delete
+        productRepository.save(product);
+    }
+}
+
+================================================================================
+TIPOS DE ELIMINACIÓN
+================================================================================
+
+Soft Delete (recomendado)
+- No borras el registro de la BD
+- Solo lo marcas como inactivo (active = false)
+- Puedes recuperarlo después
+- Mantiene integridad referencial
+Ejemplo:
+  public void delete(Long id) {
+      Product product = getById(id);
+      product.setActive(false);
+      productRepository.save(product);
+  }
+
+Hard Delete
+- Borras físicamente el registro de la BD
+- ⚠️ PELIGROSO: No se puede recuperar
+- Puede romper relaciones con otras tablas
+- Usar solo cuando sea absolutamente necesario
+Ejemplo:
+  public void deletePermanently(Long id) {
+      productRepository.deleteById(id);
+  }
+
+================================================================================
+VALIDACIONES COMUNES
+================================================================================
+
+Validar que no exista duplicado:
+if (repository.existsByName(name)) {
+    throw new RuntimeException("Ya existe");
+}
+
+Validar valores positivos:
+if (price.compareTo(BigDecimal.ZERO) <= 0) {
+    throw new RuntimeException("El precio debe ser mayor a 0");
+}
+
+Validar rango:
+if (rating < 1 || rating > 5) {
+    throw new RuntimeException("La calificación debe estar entre 1 y 5");
+}
+
+Validar lista no vacía:
+if (items == null || items.isEmpty()) {
+    throw new RuntimeException("Debe tener al menos un item");
+}
+
+Validar stock suficiente:
+if (product.getStock() < quantity) {
+    throw new RuntimeException("Stock insuficiente");
+}
+
+================================================================================
+MANEJO DE OPTIONAL
+================================================================================
+
+Optional se usa cuando un valor puede no existir
+
+Obtener o lanzar excepción:
+return repository.findById(id)
+    .orElseThrow(() -> new RuntimeException("No encontrado"));
+
+Obtener o valor por defecto:
+Product product = repository.findById(id)
+    .orElse(defaultProduct);
+
+Verificar si existe:
+Optional<Product> optional = repository.findById(id);
+if (optional.isPresent()) {
+    Product product = optional.get();
+    // hacer algo
+}
+
+================================================================================
+MANEJO DE TRANSACCIONES
+================================================================================
+
+@Transactional asegura atomicidad:
+- Todo se completa O nada se completa
+- No quedan operaciones a medias
+
+Ejemplo sin @Transactional (MAL):
+public void transferStock(Long fromId, Long toId, Integer qty) {
+    reduceStock(fromId, qty);  // Se ejecuta
+    // Si falla aquí, el stock ya se redujo pero no se aumentó
+    increaseStock(toId, qty);  // No se ejecuta
+}
+
+Ejemplo con @Transactional (BIEN):
+@Transactional
+public void transferStock(Long fromId, Long toId, Integer qty) {
+    reduceStock(fromId, qty);
+    // Si falla aquí, TODO se revierte (rollback)
+    increaseStock(toId, qty);
+}
+
+================================================================================
+PUT vs PATCH - ACTUALIZACIÓN COMPLETA VS PARCIAL
+================================================================================
+
+PUT (Actualización completa):
+- Reemplaza TODO el recurso
+- Debes enviar TODOS los campos
+- Si no envías un campo, se pone null o valor por defecto
+- Método HTTP: PUT
+- Uso: Cuando quieres actualizar el recurso completo
+
+Ejemplo:
+public Product updateProduct(Long id, Product productDetails) {
+    Product product = getById(id);
+    
+    // Actualizar TODOS los campos
+    product.setName(productDetails.getName());
+    product.setPrice(productDetails.getPrice());
+    product.setStock(productDetails.getStock());
+    // ... todos los demás campos
+    
+    return repository.save(product);
+}
+
+PATCH (Actualización parcial):
+- Actualiza SOLO los campos que envías
+- No necesitas enviar todos los campos
+- Los campos no enviados NO se modifican
+- Método HTTP: PATCH
+- Uso: Cuando solo quieres cambiar algunos campos
+
+Ejemplo:
+public Product partialUpdateProduct(Long id, Product productDetails) {
+    Product product = getById(id);
+    
+    // Actualizar solo los campos que vienen (no null)
+    if (productDetails.getName() != null) {
+        product.setName(productDetails.getName());
+    }
+    if (productDetails.getPrice() != null) {
+        if (productDetails.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Precio inválido");
+        }
+        product.setPrice(productDetails.getPrice());
+    }
+    if (productDetails.getStock() != null) {
+        product.setStock(productDetails.getStock());
+    }
+    
+    return repository.save(product);
+}
+
+MÉTODOS ESPECÍFICOS (alternativa a PATCH):
+public Product updateStock(Long id, Integer newStock) {
+    Product product = getById(id);
+    if (newStock < 0) {
+        throw new RuntimeException("Stock inválido");
+    }
+    product.setStock(newStock);
+    return repository.save(product);
+}
+
+CUÁNDO USAR CADA UNO:
+
+✅ Usa PUT cuando:
+- Actualizas el recurso completo desde un formulario
+- Tienes todos los datos del recurso
+
+✅ Usa PATCH cuando:
+- Solo actualizas algunos campos
+- Cambias precio, stock, estado, etc.
+- Mejora el rendimiento (menos datos)
+
+✅ Usa métodos específicos cuando:
+- Tienes operaciones muy comunes (updateStock, updatePrice)
+- Necesitas validaciones específicas por campo
+
+================================================================================
+BUENAS PRÁCTICAS
+================================================================================
+
+✅ Un Service por entidad principal (ProductService, OrderService)
+✅ Usar Constructor Injection con @RequiredArgsConstructor (NO @Autowired)
+✅ Declarar dependencias como private final
+✅ Usar @Transactional en métodos que modifican datos
+✅ Usar @Transactional(readOnly = true) para consultas
+✅ Validar datos ANTES de guardar
+✅ Lanzar excepciones con mensajes claros
+✅ Usar soft delete por defecto
+✅ Nombrar métodos claramente (create, update, delete, getById)
+✅ Mantener métodos cortos y específicos
+
+❌ NO usar @Autowired en fields (usa constructor injection)
+❌ NO poner lógica de negocio en el Controller
+❌ NO acceder directamente al Repository desde el Controller
+❌ NO retornar null, usar Optional
+❌ NO ignorar validaciones
+❌ NO hacer hard delete sin buena razón
+❌ NO olvidar @Transactional en operaciones de escritura
+❌ NO usar dependencias mutables (siempre usar final)
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================

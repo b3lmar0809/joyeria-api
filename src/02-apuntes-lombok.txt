@@ -1,0 +1,93 @@
+================================================================================
+                    02 - ANOTACIONES LOMBOK
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+@Getter
+- Genera automáticamente TODOS los métodos get
+- getId(), getName(), getPrice(), etc.
+- ✅ RECOMENDADO: Usar esto en vez de @Data
+
+@Setter
+- Genera automáticamente TODOS los métodos set
+- setId(), setName(), setPrice(), etc.
+- ✅ RECOMENDADO: Usar esto en vez de @Data
+
+@NoArgsConstructor
+- Genera un constructor vacío: new Product()
+- Necesario para JPA
+
+@AllArgsConstructor
+- Genera un constructor con TODOS los parámetros
+- new Product(id, name, price, stock, ...)
+
+@RequiredArgsConstructor
+- Genera un constructor con todos los campos final y @NonNull
+- ✅ RECOMENDADO para inyección de dependencias en Services
+- Elimina código repetitivo
+Ejemplo:
+  @Service
+  @RequiredArgsConstructor
+  public class ProductService {
+      private final ProductRepository repo;
+      // Lombok genera: public ProductService(ProductRepository repo) {...}
+  }
+
+@Data
+- Genera @Getter + @Setter + @ToString + @EqualsAndHashCode
+- ⚠️ NO RECOMENDADO en entidades con relaciones
+- Puede causar StackOverflowError con relaciones bidireccionales
+- Mejor usar @Getter y @Setter por separado
+
+================================================================================
+EJEMPLO DE USO EN ENTIDADES
+================================================================================
+
+@Entity
+@Table(name = "products")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class Product {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    private String name;
+    private BigDecimal price;
+}
+
+================================================================================
+EJEMPLO DE USO EN SERVICES
+================================================================================
+
+@Service
+@Transactional
+@RequiredArgsConstructor  // ← Genera constructor automáticamente
+public class ProductService {
+    
+    // private final = inmutable
+    private final ProductRepository productRepository;
+    
+    // Lombok genera automáticamente:
+    // public ProductService(ProductRepository productRepository) {
+    //     this.productRepository = productRepository;
+    // }
+}
+
+================================================================================
+BUENAS PRÁCTICAS
+================================================================================
+
+✅ Usa @Getter y @Setter en entidades (NO @Data)
+✅ Usa @RequiredArgsConstructor en Services
+✅ Usa @NoArgsConstructor y @AllArgsConstructor en entidades
+✅ Declara dependencias como private final en Services
+
+❌ NO uses @Data en entidades con relaciones
+❌ NO uses @Autowired en fields (usa @RequiredArgsConstructor)
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================

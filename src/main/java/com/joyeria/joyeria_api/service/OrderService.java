@@ -102,7 +102,6 @@ public class OrderService {
     public Order partialUpdateOrder(Long id, Order orderDetails) {
         Order order = getOrderById(id);
 
-        // Actualizar solo los campos que vienen
         if (orderDetails.getStatus() != null) {
             order.setStatus(orderDetails.getStatus());
         }

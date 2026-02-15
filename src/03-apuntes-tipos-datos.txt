@@ -1,0 +1,138 @@
+================================================================================
+                    03 - TIPOS DE DATOS
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+Long
+- Para IDs (primary keys)
+- Permite valores null
+Ejemplo: private Long id;
+
+String
+- Para textos (nombres, emails, descripciones)
+Ejemplo: private String name;
+
+BigDecimal
+- Para dinero y valores decimales precisos
+- ⚠️ NUNCA uses Double o Float para dinero
+- BigDecimal evita errores de redondeo
+Ejemplo: private BigDecimal price;
+
+¿Por qué NO usar Double para dinero?
+double precio = 0.1 + 0.2;  // resultado: 0.30000000000000004 ❌
+BigDecimal precio = new BigDecimal("0.1").add(new BigDecimal("0.2"));  // 0.3 ✅
+
+Integer
+- Para números enteros (stock, cantidad)
+Ejemplo: private Integer stock;
+
+Boolean
+- Para verdadero/falso (activo, destacado)
+Ejemplo: private Boolean active;
+
+LocalDateTime
+- Para fechas y horas
+- Reemplaza a Date (más moderno)
+Ejemplo: private LocalDateTime createdAt;
+
+List<T>
+- Para colecciones (listas)
+- Siempre inicializar: = new ArrayList<>()
+Ejemplo: private List<OrderItem> items = new ArrayList<>();
+
+Optional<T>
+- Envoltorio para valores que pueden ser null
+- Evita NullPointerException
+- Usado en Repositories
+Ejemplo: Optional<User> findByEmail(String email);
+
+================================================================================
+OPERACIONES CON BigDecimal
+================================================================================
+
+Crear un BigDecimal:
+BigDecimal precio = new BigDecimal("100.50");  // ✅ String
+BigDecimal precio = BigDecimal.valueOf(100.50); // ✅ double (menos preciso)
+
+Operaciones:
+BigDecimal suma = precio1.add(precio2);           // +
+BigDecimal resta = precio1.subtract(precio2);     // -
+BigDecimal multi = precio1.multiply(precio2);     // *
+BigDecimal div = precio1.divide(precio2, 2, RoundingMode.HALF_UP); // /
+
+Comparar:
+precio1.compareTo(precio2)
+// Retorna: -1 si precio1 < precio2
+//           0 si precio1 == precio2
+//           1 si precio1 > precio2
+
+if (precio.compareTo(BigDecimal.ZERO) > 0) {
+    // precio es mayor que 0
+}
+
+Constantes útiles:
+BigDecimal.ZERO   // 0
+BigDecimal.ONE    // 1
+BigDecimal.TEN    // 10
+
+================================================================================
+OPERACIONES CON LocalDateTime
+================================================================================
+
+Crear:
+LocalDateTime now = LocalDateTime.now();  // Fecha/hora actual
+LocalDateTime fecha = LocalDateTime.of(2024, 1, 15, 10, 30); // Específica
+
+Comparar:
+if (fecha1.isBefore(fecha2)) { }  // fecha1 es antes que fecha2
+if (fecha1.isAfter(fecha2)) { }   // fecha1 es después que fecha2
+if (fecha1.isEqual(fecha2)) { }   // son iguales
+
+Sumar/Restar:
+LocalDateTime mañana = now.plusDays(1);
+LocalDateTime pasado = now.minusDays(7);
+LocalDateTime futuro = now.plusHours(2).plusMinutes(30);
+
+================================================================================
+OPERACIONES CON Optional
+================================================================================
+
+Obtener valor o lanzar excepción:
+User user = userRepository.findByEmail(email)
+    .orElseThrow(() -> new RuntimeException("No encontrado"));
+
+Obtener valor o usar default:
+User user = userRepository.findByEmail(email)
+    .orElse(new User());  // Si no existe, usa este
+
+Verificar si existe:
+Optional<User> optional = userRepository.findByEmail(email);
+if (optional.isPresent()) {
+    User user = optional.get();
+}
+
+Ejecutar acción solo si existe:
+userRepository.findByEmail(email)
+    .ifPresent(user -> {
+        // hacer algo con user
+    });
+
+================================================================================
+BUENAS PRÁCTICAS
+================================================================================
+
+✅ Usa BigDecimal para dinero (NUNCA Double o Float)
+✅ Usa LocalDateTime en vez de Date
+✅ Usa Long para IDs (permite null)
+✅ Inicializa colecciones: = new ArrayList<>()
+✅ Usa Optional en vez de retornar null
+✅ Crea BigDecimal desde String: new BigDecimal("100.50")
+
+❌ NO uses Double o Float para dinero
+❌ NO uses Date (obsoleto)
+❌ NO uses int para IDs (usa Long)
+❌ NO retornes null (usa Optional)
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================

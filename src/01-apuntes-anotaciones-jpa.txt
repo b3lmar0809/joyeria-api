@@ -1,0 +1,167 @@
+================================================================================
+                    01 - ANOTACIONES JPA (ENTIDADES)
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+@Entity
+- Marca una clase como tabla de base de datos
+- Cada instancia = una fila en la tabla
+Ejemplo: @Entity public class Product { ... }
+
+@Table(name = "nombre_tabla")
+- Define el nombre de la tabla en la BD
+- Si no se pone, usa el nombre de la clase
+Ejemplo: @Table(name = "products")
+
+@Id
+- Marca el campo como clave primaria (PRIMARY KEY)
+- Obligatorio en cada entidad
+Ejemplo: @Id private Long id;
+
+@GeneratedValue(strategy = GenerationType.IDENTITY)
+- El valor se genera automáticamente
+- IDENTITY usa auto-increment de la base de datos
+- Cada vez que insertas un registro, el ID aumenta solo
+Ejemplo: 
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+@Column
+- Configura las propiedades de la columna
+- Atributos comunes:
+  * nullable = false → NO puede ser null (obligatorio)
+  * unique = true → No puede haber valores duplicados
+  * columnDefinition = "TEXT" → Para textos largos
+  * updatable = false → No se puede modificar después de crear
+Ejemplo: @Column(nullable = false, unique = true)
+
+@Enumerated(EnumType.STRING)
+- Para guardar enums en la base de datos
+- STRING guarda el nombre ("ADMIN", "CUSTOMER")
+- ORDINAL guarda el número (0, 1, 2...) ← NO RECOMENDADO
+Ejemplo:
+  @Enumerated(EnumType.STRING)
+  private Role role;
+
+@ManyToOne
+- Relación de muchos a uno
+- Ejemplo: Muchos productos pueden tener UNA categoría
+- fetch = FetchType.LAZY → No carga los datos hasta que los pidas
+- fetch = FetchType.EAGER → Carga todo de inmediato
+Ejemplo:
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "category_id")
+  private Category category;
+
+@OneToMany
+- Relación de uno a muchos
+- Ejemplo: Una orden tiene MUCHOS items
+- mappedBy = "order" → Campo en la otra clase que tiene la relación
+- cascade = CascadeType.ALL → Si borras orden, borra los items
+- orphanRemoval = true → Si quitas un item de la lista, lo borra
+Ejemplo:
+  @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<OrderItem> items = new ArrayList<>();
+
+@JoinColumn(name = "columna_id")
+- Define el nombre de la columna que guarda la relación (foreign key)
+Ejemplo: @JoinColumn(name = "category_id")
+
+@ElementCollection
+- Para guardar una colección de valores simples (no entidades)
+- Ejemplo: Lista de URLs de imágenes
+Ejemplo:
+  @ElementCollection
+  @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
+  @Column(name = "image_url")
+  private List<String> images = new ArrayList<>();
+
+@PreUpdate
+- Método que se ejecuta automáticamente ANTES de actualizar
+Ejemplo:
+  @PreUpdate
+  protected void onUpdate() {
+      updatedAt = LocalDateTime.now();
+  }
+
+@JsonIgnoreProperties
+- Evita ciclos infinitos al serializar a JSON
+- Ignora ciertos campos al convertir a JSON
+Ejemplo: @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+
+================================================================================
+RELACIONES ENTRE TABLAS
+================================================================================
+
+TIPOS DE RELACIONES:
+
+1. @ManyToOne (Muchos a Uno)
+   - Muchas entidades A relacionadas con UNA entidad B
+   - Ejemplo: Muchos productos → Una categoría
+   - La foreign key está en la tabla A (products.category_id)
+
+2. @OneToMany (Uno a Muchos)
+   - UNA entidad A relacionada con MUCHAS entidades B
+   - Ejemplo: Una orden → Muchos items
+   - Siempre va con mappedBy en el lado "uno"
+
+3. @OneToOne (Uno a Uno)
+   - UNA entidad A con UNA entidad B
+   - Ejemplo: Un usuario → Un perfil
+   - Menos común
+
+4. @ManyToMany (Muchos a Muchos)
+   - Muchas A con muchas B
+   - Ejemplo: Productos ↔ Etiquetas
+   - Se crea una tabla intermedia automáticamente
+
+FETCH TYPES:
+
+FetchType.LAZY (Carga perezosa)
+- NO carga los datos relacionados hasta que los uses
+- Mejora el rendimiento
+- RECOMENDADO para @ManyToOne y @OneToMany
+- Ejemplo: Al cargar Product, NO carga Category hasta que hagas product.getCategory()
+
+FetchType.EAGER (Carga inmediata)
+- Carga TODOS los datos relacionados de inmediato
+- Puede afectar el rendimiento
+- Usar solo cuando siempre necesites los datos relacionados
+
+CASCADE TYPES:
+
+CascadeType.ALL
+- Todas las operaciones se propagan
+- Si guardas/borras A, también afecta a B
+
+CascadeType.PERSIST
+- Al guardar A, guarda B automáticamente
+
+CascadeType.REMOVE
+- Al borrar A, borra B automáticamente
+
+CascadeType.MERGE
+- Al actualizar A, actualiza B
+
+orphanRemoval = true
+- Si quitas un elemento de la colección, se borra de la BD
+- Ejemplo: Si quitas un OrderItem de la lista, se elimina
+
+================================================================================
+BUENAS PRÁCTICAS
+================================================================================
+
+✅ Usa FetchType.LAZY para relaciones (mejor rendimiento)
+✅ Usa @JsonIgnoreProperties para evitar ciclos infinitos
+✅ Inicializa colecciones: private List<OrderItem> items = new ArrayList<>();
+✅ Usa enums para estados fijos (OrderStatus, Role, etc.)
+✅ Marca campos de auditoría como updatable = false (createdAt)
+✅ Usa EnumType.STRING (NO ORDINAL)
+
+❌ NO uses fetch = EAGER sin una buena razón
+❌ NO uses EnumType.ORDINAL (usa STRING)
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================

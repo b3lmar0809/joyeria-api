@@ -1,0 +1,274 @@
+================================================================================
+                    04 - REPOSITORIES (Spring Data JPA)
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+¿Qué es un Repository?
+- Interfaz que maneja operaciones con la base de datos
+- Extiende JpaRepository<Entidad, TipoID>
+- Spring genera automáticamente la implementación
+- Se comunica directamente con PostgreSQL
+
+Ejemplo básico:
+public interface ProductRepository extends JpaRepository<Product, Long> {
+    // Aquí defines métodos personalizados
+}
+
+================================================================================
+MÉTODOS QUE TRAE JpaRepository (GRATIS)
+================================================================================
+
+save(entity) 
+- Guarda o actualiza una entidad
+- Si el ID es null → INSERT
+- Si el ID existe → UPDATE
+Ejemplo: productRepository.save(product);
+
+findById(id) 
+- Busca por ID
+- Retorna Optional<Entity>
+Ejemplo: Optional<Product> product = productRepository.findById(1L);
+
+findAll() 
+- Trae todos los registros
+- Retorna List<Entity>
+Ejemplo: List<Product> products = productRepository.findAll();
+
+deleteById(id) 
+- Elimina por ID
+Ejemplo: productRepository.deleteById(1L);
+
+delete(entity) 
+- Elimina la entidad
+Ejemplo: productRepository.delete(product);
+
+count() 
+- Cuenta todos los registros
+Ejemplo: long total = productRepository.count();
+
+existsById(id) 
+- Verifica si existe un registro con ese ID
+- Retorna true o false
+Ejemplo: boolean exists = productRepository.existsById(1L);
+
+saveAll(entities)
+- Guarda múltiples entidades de una vez
+Ejemplo: productRepository.saveAll(listOfProducts);
+
+deleteAll()
+- Elimina TODOS los registros (¡CUIDADO!)
+
+================================================================================
+CONVENCIONES DE NOMBRES EN MÉTODOS
+================================================================================
+
+Spring Data JPA genera SQL automáticamente según el nombre del método:
+
+PALABRAS CLAVE:
+
+findBy...
+- Buscar registros
+Ejemplo: findByName(String name)
+SQL: SELECT * FROM tabla WHERE name = ?
+
+findBy...And...
+- Buscar con múltiples condiciones (AND)
+Ejemplo: findByNameAndPrice(String name, BigDecimal price)
+SQL: SELECT * FROM tabla WHERE name = ? AND price = ?
+
+findBy...Or...
+- Buscar con OR
+Ejemplo: findByNameOrSku(String name, String sku)
+SQL: SELECT * FROM tabla WHERE name = ? OR sku = ?
+
+existsBy...
+- Verifica si existe
+Ejemplo: existsByEmail(String email)
+SQL: SELECT COUNT(*) > 0 FROM tabla WHERE email = ?
+Retorna: Boolean (true/false)
+
+countBy...
+- Cuenta registros
+Ejemplo: countByCategory(Category category)
+SQL: SELECT COUNT(*) FROM tabla WHERE category_id = ?
+
+deleteBy...
+- Elimina registros que cumplan condición
+Ejemplo: deleteByActiveFalse()
+SQL: DELETE FROM tabla WHERE active = false
+
+COMPARADORES:
+
+LessThan
+- Menor que
+Ejemplo: findByPriceLessThan(BigDecimal price)
+SQL: WHERE price < ?
+
+GreaterThan
+- Mayor que
+Ejemplo: findByStockGreaterThan(Integer stock)
+SQL: WHERE stock > ?
+
+Between
+- Entre dos valores
+Ejemplo: findByPriceBetween(BigDecimal min, BigDecimal max)
+SQL: WHERE price BETWEEN ? AND ?
+
+Like / Containing
+- Buscar texto que contenga
+Ejemplo: findByNameContaining(String keyword)
+SQL: WHERE name LIKE %?%
+
+StartingWith
+- Que empiece con
+Ejemplo: findByNameStartingWith(String prefix)
+SQL: WHERE name LIKE ?%
+
+EndingWith
+- Que termine con
+Ejemplo: findByNameEndingWith(String suffix)
+SQL: WHERE name LIKE %?
+
+IgnoreCase
+- Ignorar mayúsculas/minúsculas
+Ejemplo: findByEmailIgnoreCase(String email)
+SQL: WHERE LOWER(email) = LOWER(?)
+
+IsNull / IsNotNull
+- Campo null o no null
+Ejemplo: findByDiscountPriceIsNotNull()
+SQL: WHERE discount_price IS NOT NULL
+
+True / False
+- Para booleanos
+Ejemplo: findByActiveTrue()
+SQL: WHERE active = true
+
+ORDENAMIENTO:
+
+OrderBy...Asc
+- Ordenar ascendente (A-Z, 0-9)
+Ejemplo: findByActiveTrueOrderByNameAsc()
+SQL: WHERE active = true ORDER BY name ASC
+
+OrderBy...Desc
+- Ordenar descendente (Z-A, 9-0)
+Ejemplo: findByActiveTrueOrderByCreatedAtDesc()
+SQL: WHERE active = true ORDER BY created_at DESC
+
+================================================================================
+CONSULTAS PERSONALIZADAS CON @Query
+================================================================================
+
+Cuando el nombre del método no es suficiente, usa @Query
+
+JPQL (Java Persistence Query Language):
+- Es como SQL pero usa nombres de clases y atributos
+- No nombres de tablas y columnas
+
+Ejemplo básico:
+@Query("SELECT p FROM Product p WHERE p.price > :minPrice")
+List<Product> findExpensiveProducts(@Param("minPrice") BigDecimal minPrice);
+
+Partes:
+- SELECT p → Selecciona el producto completo
+- FROM Product p → De la clase Product (no tabla "products")
+- WHERE p.price → Atributo price (no columna "price")
+- :minPrice → Parámetro nombrado
+- @Param("minPrice") → Conecta parámetro del método con la consulta
+
+JPQL vs SQL:
+JPQL: SELECT p FROM Product p WHERE p.category.name = :name
+SQL:  SELECT * FROM products p JOIN categories c ON p.category_id = c.id WHERE c.name = ?
+
+SQL Nativo:
+@Query(value = "SELECT * FROM products WHERE price > ?1", nativeQuery = true)
+List<Product> findExpensiveProductsNative(BigDecimal minPrice);
+
+nativeQuery = true → Usas SQL directo de PostgreSQL
+
+FUNCIONES AGREGADAS:
+
+SUM
+@Query("SELECT SUM(o.totalAmount) FROM Order o WHERE o.status = 'PAID'")
+BigDecimal calculateTotalSales();
+
+COUNT
+@Query("SELECT COUNT(p) FROM Product p WHERE p.active = true")
+Long countActiveProducts();
+
+AVG
+@Query("SELECT AVG(r.rating) FROM Review r WHERE r.product.id = :productId")
+Double calculateAverageRating(@Param("productId") Long productId);
+
+MAX / MIN
+@Query("SELECT MAX(p.price) FROM Product p")
+BigDecimal findMaxPrice();
+
+GROUP BY
+@Query("SELECT p.category, COUNT(p) FROM Product p GROUP BY p.category")
+List<Object[]> countProductsByCategory();
+
+================================================================================
+EJEMPLOS COMPLETOS
+================================================================================
+
+public interface ProductRepository extends JpaRepository<Product, Long> {
+    
+    // Buscar por SKU
+    Optional<Product> findBySku(String sku);
+    
+    // Verificar si existe
+    Boolean existsBySku(String sku);
+    
+    // Todos los productos activos
+    List<Product> findByActiveTrue();
+    
+    // Productos activos ordenados
+    List<Product> findByActiveTrueOrderByCreatedAtDesc();
+    
+    // Por categoría
+    List<Product> findByCategoryAndActiveTrue(Category category);
+    
+    // Búsqueda parcial
+    List<Product> findByNameContainingIgnoreCaseAndActiveTrue(String keyword);
+    
+    // Rango de precio
+    List<Product> findByPriceBetweenAndActiveTrue(BigDecimal min, BigDecimal max);
+    
+    // Con stock
+    List<Product> findByStockGreaterThanAndActiveTrue(Integer stock);
+    
+    // Consulta personalizada
+    @Query("SELECT p FROM Product p WHERE " +
+           "(:categoryId IS NULL OR p.category.id = :categoryId) AND " +
+           "(:materialId IS NULL OR p.material.id = :materialId) AND " +
+           "p.active = true")
+    List<Product> findByFilters(
+        @Param("categoryId") Long categoryId,
+        @Param("materialId") Long materialId
+    );
+    
+    // Productos en oferta
+    @Query("SELECT p FROM Product p WHERE p.discountPrice IS NOT NULL AND p.active = true")
+    List<Product> findProductsOnSale();
+}
+
+================================================================================
+BUENAS PRÁCTICAS
+================================================================================
+
+✅ Usa nombres descriptivos en métodos
+✅ Retorna Optional cuando puede no existir
+✅ Usa @Query para consultas complejas
+✅ Usa @Param para nombrar parámetros claramente
+✅ Aprovecha las convenciones de Spring (findBy, existsBy, etc.)
+✅ Usa JPQL (no SQL nativo) cuando sea posible
+
+❌ NO hagas consultas complejas en el controller
+❌ NO retornes null, usa Optional
+❌ NO uses SQL nativo sin necesidad
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================
