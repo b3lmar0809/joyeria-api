@@ -18,10 +18,10 @@ public interface CategoryRepository  extends JpaRepository<Category, Long> {
 
     Boolean existsByName(String name);
 
-    java.util.List<Category> findByActiveTrue();
+    List<Category> findByActiveTrue();
 
     // traer categorias activas ordenadas por nombre
     // SQL generado: SELECT * FROM categories WHERE active = true ORDER BY name ASC
-    java.util.List<Category> findByActiveTrueOrderByNameAsc();
+    List<Category> findByActiveTrueOrderByNameAsc();
 
 }
