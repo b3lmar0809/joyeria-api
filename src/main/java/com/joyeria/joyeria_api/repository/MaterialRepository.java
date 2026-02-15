@@ -18,5 +18,7 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
 
     List<Material> findByActiveTrue();
 
+    Boolean existsByName(String name);
+
     List<Material> findByActiveTrueOrderByNameAsc();
 }
