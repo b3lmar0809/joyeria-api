@@ -1,0 +1,470 @@
+================================================================================
+                    06 - CONTROLLERS (Endpoints REST)
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+¿Qué es un Controller?
+- Capa que recibe las peticiones HTTP (GET, POST, PUT, PATCH, DELETE)
+- Es la "puerta de entrada" de tu API REST
+- Convierte JSON a objetos Java y viceversa
+- Delega la lógica de negocio al Service
+
+FLUJO:
+Cliente (Frontend/Postman) → Controller → Service → Repository → BD
+        HTTP Request            REST        Lógica     SQL
+
+================================================================================
+ANOTACIONES PRINCIPALES
+================================================================================
+
+@RestController
+- Combina @Controller + @ResponseBody
+- Todas las respuestas se convierten automáticamente a JSON
+- Usada para crear APIs REST
+Ejemplo:
+  @RestController
+  public class ProductController { ... }
+
+@Controller
+- Para controllers tradicionales (devuelven vistas HTML)
+- NO para APIs REST
+
+@RequestMapping
+- Define la ruta base para todos los endpoints del controller
+- Todos los métodos heredan esta ruta
+Ejemplo:
+  @RequestMapping("/api/products")
+  // Todos los endpoints empiezan con /api/products
+
+@CrossOrigin
+- Permite peticiones desde otros dominios (CORS)
+- Necesario para que el frontend pueda llamar a la API
+Ejemplo:
+  @CrossOrigin(origins = "http://localhost:3000")
+  // Permite peticiones desde el frontend
+
+@RequiredArgsConstructor
+- Inyecta el Service automáticamente
+- Igual que en Services
+Ejemplo:
+  @RestController
+  @RequiredArgsConstructor
+  public class ProductController {
+      private final ProductService productService;
+  }
+
+================================================================================
+ANOTACIONES DE MÉTODOS HTTP
+================================================================================
+
+@GetMapping
+- Mapea peticiones GET
+- Para consultar/leer datos
+- No modifica nada
+Ejemplo:
+  @GetMapping("/api/products")
+  public List<Product> getAll() { ... }
+
+@PostMapping
+- Mapea peticiones POST
+- Para crear nuevos recursos
+Ejemplo:
+  @PostMapping("/api/products")
+  public Product create(@RequestBody Product product) { ... }
+
+@PutMapping
+- Mapea peticiones PUT
+- Para actualizar completamente un recurso
+Ejemplo:
+  @PutMapping("/api/products/{id}")
+  public Product update(@PathVariable Long id, @RequestBody Product product) { ... }
+
+@PatchMapping
+- Mapea peticiones PATCH
+- Para actualizar parcialmente un recurso
+Ejemplo:
+  @PatchMapping("/api/products/{id}")
+  public Product partialUpdate(@PathVariable Long id, @RequestBody Product product) { ... }
+
+@DeleteMapping
+- Mapea peticiones DELETE
+- Para eliminar recursos
+Ejemplo:
+  @DeleteMapping("/api/products/{id}")
+  public void delete(@PathVariable Long id) { ... }
+
+================================================================================
+ANOTACIONES DE PARÁMETROS
+================================================================================
+
+@PathVariable
+- Extrae valores de la URL (parte del path)
+- Ejemplo: /api/products/1 → id = 1
+Uso:
+  @GetMapping("/api/products/{id}")
+  public Product getById(@PathVariable Long id) {
+      return productService.getById(id);
+  }
+
+@RequestParam
+- Extrae parámetros de la query string
+- Ejemplo: /api/products?keyword=anillo → keyword = "anillo"
+Uso:
+  @GetMapping("/api/products/search")
+  public List<Product> search(@RequestParam String keyword) {
+      return productService.search(keyword);
+  }
+
+Parámetros opcionales:
+  @RequestParam(required = false) String keyword
+  @RequestParam(defaultValue = "10") Integer limit
+
+@RequestBody
+- Convierte el JSON del body a un objeto Java
+- Usado en POST, PUT, PATCH
+Uso:
+  @PostMapping("/api/products")
+  public Product create(@RequestBody Product product) {
+      return productService.create(product);
+  }
+
+@Valid
+- Activa validaciones de Jakarta Validation
+- Valida el objeto antes de procesarlo
+Uso:
+  @PostMapping("/api/products")
+  public Product create(@Valid @RequestBody Product product) {
+      // Si product no es válido, lanza MethodArgumentNotValidException
+      return productService.create(product);
+  }
+
+================================================================================
+CÓDIGOS DE RESPUESTA HTTP
+================================================================================
+
+200 OK
+- Petición exitosa (GET, PUT, PATCH)
+- Retorna datos en el body
+Uso:
+  return ResponseEntity.ok(product);
+
+201 CREATED
+- Recurso creado exitosamente (POST)
+- Retorna el recurso creado
+Uso:
+  return ResponseEntity.status(HttpStatus.CREATED).body(product);
+
+204 NO CONTENT
+- Petición exitosa sin contenido (DELETE)
+- No retorna nada en el body
+Uso:
+  return ResponseEntity.noContent().build();
+
+400 BAD REQUEST
+- Petición inválida (datos incorrectos)
+- Se lanza automáticamente con @Valid
+
+404 NOT FOUND
+- Recurso no encontrado
+- Se lanza con RuntimeException en Service
+
+500 INTERNAL SERVER ERROR
+- Error del servidor (excepciones no controladas)
+
+================================================================================
+ResponseEntity
+================================================================================
+
+¿Qué es?
+- Wrapper que permite controlar la respuesta HTTP completa
+- Código de estado, headers, body
+
+Formas de uso:
+
+Retornar solo el body (200 OK):
+return ResponseEntity.ok(product);
+
+Retornar con código personalizado:
+return ResponseEntity.status(HttpStatus.CREATED).body(product);
+
+Sin contenido:
+return ResponseEntity.noContent().build();
+
+Con headers:
+return ResponseEntity.ok()
+    .header("Custom-Header", "value")
+    .body(product);
+
+================================================================================
+ESTRUCTURA DE UN CONTROLLER
+================================================================================
+
+@RestController
+@RequestMapping("/api/products")
+@CrossOrigin(origins = "${cors.allowed.origins}")
+@RequiredArgsConstructor
+public class ProductController {
+    
+    private final ProductService productService;
+    
+    // GET /api/products
+    @GetMapping
+    public ResponseEntity<List<Product>> getAll() {
+        return ResponseEntity.ok(productService.getAll());
+    }
+    
+    // GET /api/products/1
+    @GetMapping("/{id}")
+    public ResponseEntity<Product> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(productService.getById(id));
+    }
+    
+    // POST /api/products
+    @PostMapping
+    public ResponseEntity<Product> create(@Valid @RequestBody Product product) {
+        Product created = productService.create(product);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+    
+    // PUT /api/products/1
+    @PutMapping("/{id}")
+    public ResponseEntity<Product> update(
+        @PathVariable Long id,
+        @Valid @RequestBody Product product
+    ) {
+        return ResponseEntity.ok(productService.update(id, product));
+    }
+    
+    // PATCH /api/products/1
+    @PatchMapping("/{id}")
+    public ResponseEntity<Product> partialUpdate(
+        @PathVariable Long id,
+        @RequestBody Product product
+    ) {
+        return ResponseEntity.ok(productService.partialUpdate(id, product));
+    }
+    
+    // DELETE /api/products/1
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        productService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+================================================================================
+EJEMPLOS DE URLS Y MÉTODOS
+================================================================================
+
+PRODUCTOS:
+
+GET    /api/products                     → Todos los productos
+GET    /api/products/1                   → Producto por ID
+GET    /api/products/sku/ANI-001         → Producto por SKU
+GET    /api/products/recent              → Productos recientes
+GET    /api/products/featured            → Productos destacados
+GET    /api/products/sale                → Productos en oferta
+GET    /api/products/category/1          → Por categoría
+GET    /api/products/material/2          → Por material
+GET    /api/products/search?keyword=anillo → Búsqueda
+GET    /api/products/price-range?min=1000&max=5000 → Por rango precio
+GET    /api/products/filter?categoryId=1&materialId=2 → Múltiples filtros
+
+POST   /api/products                     → Crear producto
+PUT    /api/products/1                   → Actualizar completo
+PATCH  /api/products/1                   → Actualizar parcial
+PATCH  /api/products/1/stock             → Actualizar solo stock
+PATCH  /api/products/1/price             → Actualizar solo precio
+DELETE /api/products/1                   → Eliminar (soft)
+
+CATEGORÍAS:
+
+GET    /api/categories                   → Todas las categorías
+GET    /api/categories/active            → Solo activas
+GET    /api/categories/1                 → Por ID
+POST   /api/categories                   → Crear
+PUT    /api/categories/1                 → Actualizar completo
+PATCH  /api/categories/1                 → Actualizar parcial
+DELETE /api/categories/1                 → Eliminar
+
+ÓRDENES:
+
+GET    /api/orders/1                     → Orden por ID
+GET    /api/orders/customer/email@test.com → Órdenes de un cliente
+GET    /api/orders/status/PAID           → Por estado
+GET    /api/orders/recent                → Últimas 10
+GET    /api/orders/sales?startDate=...&endDate=... → Calcular ventas
+POST   /api/orders                       → Crear orden
+PATCH  /api/orders/1                     → Actualizar
+PATCH  /api/orders/1/status              → Cambiar estado
+PATCH  /api/orders/1/tracking            → Actualizar tracking
+PATCH  /api/orders/1/cancel              → Cancelar
+
+RESEÑAS:
+
+GET    /api/reviews/product/1            → Reseñas de un producto
+GET    /api/reviews/product/1/average    → Promedio de calificación
+GET    /api/reviews/pending              → Pendientes (admin)
+POST   /api/reviews                      → Crear reseña
+PATCH  /api/reviews/1/approve            → Aprobar (admin)
+DELETE /api/reviews/1                    → Eliminar
+
+================================================================================
+EJEMPLOS DE PETICIONES JSON
+================================================================================
+
+POST /api/products
+{
+  "name": "Anillo de oro",
+  "description": "Anillo 18K con diamante",
+  "price": 5000.00,
+  "stock": 10,
+  "sku": "ANI-001",
+  "weight": 5.5,
+  "categoryId": 1,
+  "materialId": 2,
+  "active": true
+}
+
+PATCH /api/products/1
+{
+  "price": 4500.00,
+  "stock": 15
+}
+
+PATCH /api/products/1/stock
+{
+  "stock": 20
+}
+
+POST /api/orders
+{
+  "customerEmail": "juan@email.com",
+  "customerName": "Juan Pérez",
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 2
+    }
+  ],
+  "shippingAddress": "Calle 123",
+  "shippingCity": "CDMX",
+  "shippingPostalCode": "12345",
+  "shippingCountry": "México"
+}
+
+PATCH /api/orders/1/status
+{
+  "status": "SHIPPED"
+}
+
+POST /api/reviews
+{
+  "productId": 1,
+  "userId": 5,
+  "rating": 5,
+  "comment": "Excelente producto"
+}
+
+================================================================================
+MANEJO DE ERRORES
+================================================================================
+
+Las excepciones lanzadas en el Service se propagan al Controller
+
+RuntimeException en Service:
+throw new RuntimeException("Producto no encontrado");
+
+Se convierte en:
+500 INTERNAL SERVER ERROR
+
+Para manejar errores correctamente, necesitas un @ControllerAdvice
+(lo veremos después)
+
+================================================================================
+BUENAS PRÁCTICAS
+================================================================================
+
+✅ Usa @RestController para APIs REST
+✅ Define rutas claras y RESTful (/api/products, no /getProducts)
+✅ Usa los métodos HTTP correctos (GET, POST, PUT, PATCH, DELETE)
+✅ Usa @PathVariable para IDs en la URL
+✅ Usa @RequestParam para filtros y búsquedas
+✅ Retorna ResponseEntity para controlar códigos HTTP
+✅ Usa @Valid para validar datos de entrada
+✅ Delega la lógica al Service (controller solo coordina)
+✅ Usa códigos HTTP apropiados (200, 201, 204, 404, 500)
+✅ Nombra métodos descriptivamente (getById, create, update)
+
+❌ NO pongas lógica de negocio en el Controller
+❌ NO accedas directamente al Repository
+❌ NO uses @GetMapping para operaciones que modifican datos
+❌ NO mezcles @Controller con @RestController
+❌ NO retornes null (usa ResponseEntity)
+❌ NO ignores las validaciones
+❌ NO uses rutas inconsistentes
+
+================================================================================
+CONVENCIONES REST
+================================================================================
+
+Recurso: /api/products
+
+GET    /api/products       → Listar todos
+GET    /api/products/1     → Obtener uno
+POST   /api/products       → Crear
+PUT    /api/products/1     → Actualizar completo
+PATCH  /api/products/1     → Actualizar parcial
+DELETE /api/products/1     → Eliminar
+
+Sub-recursos: /api/products/1/reviews
+
+GET    /api/products/1/reviews    → Reseñas del producto 1
+POST   /api/products/1/reviews    → Crear reseña para producto 1
+
+Acciones: /api/products/1/activate
+
+PATCH  /api/products/1/activate   → Activar producto
+PATCH  /api/orders/1/cancel       → Cancelar orden
+
+================================================================================
+TESTING CON POSTMAN/THUNDER CLIENT
+================================================================================
+
+GET /api/products
+Headers: (ninguno)
+Body: (ninguno)
+
+POST /api/products
+Headers: Content-Type: application/json
+Body (raw JSON):
+{
+  "name": "Anillo",
+  "price": 5000.00,
+  "stock": 10
+}
+
+PUT /api/products/1
+Headers: Content-Type: application/json
+Body (raw JSON):
+{
+  "name": "Anillo actualizado",
+  "price": 4500.00,
+  "stock": 15,
+  ...todos los campos...
+}
+
+PATCH /api/products/1
+Headers: Content-Type: application/json
+Body (raw JSON):
+{
+  "price": 4500.00
+}
+
+DELETE /api/products/1
+Headers: (ninguno)
+Body: (ninguno)
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================
