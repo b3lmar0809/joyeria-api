@@ -47,4 +47,12 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     java.util.List<Object[]> countByRatingForProduct(@Param("productId") Long productId);
     // Retorna: [[5, 10], [4, 5], [3, 2], [2, 1], [1, 0]]
     // ej: 10 reseñas de 5 estrellas, 5 de 4 estrellas
+
+    //verificar si un usuario ya reseñó un producto (usando IDs)
+    @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END " +
+            "FROM Review r WHERE r.user.id = :userId AND r.product.id = :productId")
+    Boolean existsByUserIdAndProductId(
+            @Param("userId") Long userId,
+            @Param("productId") Long productId
+    );
 }
