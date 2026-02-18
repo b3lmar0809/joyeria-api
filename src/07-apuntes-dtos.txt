@@ -1,0 +1,556 @@
+================================================================================
+                    07 - DTOs (Data Transfer Objects)
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+¿Qué es un DTO?
+- Data Transfer Object (Objeto de Transferencia de Datos)
+- Son clases simples que transportan datos entre capas
+- NO tienen lógica de negocio, solo getters y setters
+- Se usan para transferir datos entre el backend y el frontend
+
+================================================================================
+¿POR QUÉ USAR DTOs?
+================================================================================
+
+PROBLEMA 1: SEGURIDAD
+Si retornas entidades directamente:
+
+@GetMapping("/users/{id}")
+public User getUser(@PathVariable Long id) {
+    return userService.getById(id);
+}
+
+El frontend recibe TODO:
+{
+  "id": 1,
+  "email": "juan@email.com",
+  "password": "$2a$10$encrypted...",  // ❌ EXPONES LA CONTRASEÑA
+  "role": "ADMIN",                    // ❌ Información sensible
+  "active": true,
+  "createdAt": "2024-01-01"
+}
+
+Con DTO solo envías lo necesario:
+{
+  "id": 1,
+  "email": "juan@email.com",
+  "firstName": "Juan",
+  "lastName": "Pérez"
+}
+
+PROBLEMA 2: CICLOS INFINITOS
+Order tiene List<OrderItem>
+OrderItem tiene Order
+¡Ciclo infinito al serializar a JSON! 🔄
+
+Order → OrderItem → Order → OrderItem → ...
+
+Resultado: StackOverflowError
+
+PROBLEMA 3: EXPONES LA ESTRUCTURA DE TU BASE DE DATOS
+Si cambias la BD, cambias el contrato con el frontend
+
+Hoy:
+class Product {
+    private Category category;  // Objeto completo
+}
+
+Mañana:
+class Product {
+    private Long categoryId;    // Solo ID
+}
+
+El frontend SE ROMPE 💥
+
+Con DTOs el contrato siempre es el mismo.
+
+PROBLEMA 4: PERFORMANCE
+Envías DEMASIADOS datos innecesarios
+
+Sin DTO (lista de productos):
+{
+  "id": 1,
+  "name": "Anillo",
+  "category": {
+    "id": 1,
+    "name": "Anillos",
+    "description": "Descripción larga...",
+    "imageUrl": "...",
+    "active": true
+  },
+  "material": { /* objeto completo */ },
+  "images": ["url1", "url2", "url3", "url4", "url5"],
+  "reviews": [ /* 50 reseñas completas */ ]
+}
+
+Con DTO (solo lo necesario):
+{
+  "id": 1,
+  "name": "Anillo",
+  "price": 5000,
+  "categoryName": "Anillos",
+  "mainImage": "url1",
+  "averageRating": 4.5
+}
+
+PROBLEMA 5: VALIDACIONES DIFERENTES
+Al CREAR producto:
+- name es obligatorio
+- price es obligatorio
+- NO incluye ID (se genera automáticamente)
+
+Al ACTUALIZAR producto:
+- name es opcional
+- price es opcional
+- SÍ incluye ID en la URL
+
+Necesitas DTOs diferentes para cada operación.
+
+================================================================================
+ALTERNATIVA: ANOTACIONES JACKSON
+================================================================================
+
+Puedes usar anotaciones de Jackson en vez de DTOs:
+
+@JsonIgnore
+- Ignora un campo al serializar a JSON
+
+@Entity
+public class User {
+    private Long id;
+    private String email;
+    
+    @JsonIgnore  // NO se envía al frontend
+    private String password;
+}
+
+@JsonProperty(access = Access.WRITE_ONLY)
+- Solo recibe del frontend, NO envía al frontend
+
+@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+private String password;  // Recibe, pero NO envía
+
+@JsonManagedReference y @JsonBackReference
+- Evita ciclos infinitos en relaciones bidireccionales
+
+@Entity
+public class Order {
+    @OneToMany
+    @JsonManagedReference  // Se serializa
+    private List<OrderItem> items;
+}
+
+@Entity
+public class OrderItem {
+    @ManyToOne
+    @JsonBackReference  // NO se serializa (evita ciclo)
+    private Order order;
+}
+
+@JsonIgnoreProperties
+- Ignora múltiples campos
+
+@ManyToOne
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password"})
+private User user;
+
+================================================================================
+ESTRATEGIA RECOMENDADA: MIXTA
+================================================================================
+
+USA DTOs cuando:
+✅ Necesitas validaciones diferentes (crear vs actualizar)
+✅ Necesitas ocultar campos sensibles (User con password)
+✅ Necesitas estructuras diferentes (request vs response)
+✅ No corresponde a ninguna entidad (AuthResponse, ErrorResponse)
+
+USA Anotaciones Jackson cuando:
+✅ La entidad es simple (Category, Material)
+✅ Solo necesitas ocultar algunos campos
+✅ Necesitas evitar ciclos en relaciones
+
+================================================================================
+DTOs QUE CREAMOS (7 archivos)
+================================================================================
+
+1. CreateOrderRequest.java
+   - Para crear órdenes desde el frontend
+   - Tiene validaciones estrictas
+   - Estructura diferente a Order (solo IDs de productos)
+   
+   Uso:
+   POST /api/orders
+   Body: CreateOrderRequest
+   
+   ¿Por qué?
+   - Validaciones específicas
+   - No incluye campos calculados (subtotal, totalAmount)
+   - Solo IDs de productos, no objetos completos
+
+2. OrderItemRequest.java
+   - Items dentro de CreateOrderRequest
+   - Valida productId y quantity
+   
+   Uso:
+   Parte de CreateOrderRequest.items
+   
+   ¿Por qué?
+   - Validaciones específicas por item
+   - Estructura simple (solo ID + cantidad)
+
+3. PaymentIntentResponse.java
+   - Respuesta después de crear PaymentIntent en Stripe
+   - Retorna clientSecret para el frontend
+   
+   Uso:
+   POST /api/orders → PaymentIntentResponse
+   
+   ¿Por qué?
+   - No corresponde a ninguna entidad
+   - Específico para integración con Stripe
+   - Combina info de Order + Stripe
+
+4. ErrorResponse.java
+   - Respuestas de error estandarizadas
+   - Usado por @ControllerAdvice
+   
+   Uso:
+   Cualquier error → ErrorResponse
+   
+   ¿Por qué?
+   - Consistencia en respuestas de error
+   - No corresponde a ninguna entidad
+   - Mejor experiencia para el frontend
+
+5. RegisterRequest.java
+   - Para registrar nuevos usuarios
+   - Validaciones específicas de registro
+   
+   Uso:
+   POST /api/auth/register
+   Body: RegisterRequest
+   
+   ¿Por qué?
+   - Validaciones diferentes a User
+   - No incluye role, active, createdAt
+   - Password debe tener mínimo 6 caracteres
+
+6. LoginRequest.java
+   - Para login de usuarios
+   - Solo email y password
+   
+   Uso:
+   POST /api/auth/login
+   Body: LoginRequest
+   
+   ¿Por qué?
+   - Solo necesita 2 campos
+   - Estructura diferente a User
+   - Validaciones simples
+
+7. AuthResponse.java
+   - Respuesta de login/registro
+   - Retorna JWT token + info del usuario
+   
+   Uso:
+   POST /api/auth/login → AuthResponse
+   POST /api/auth/register → AuthResponse
+   
+   ¿Por qué?
+   - Combina User + JWT token
+   - No corresponde a ninguna entidad
+   - Info que el frontend necesita guardar
+
+================================================================================
+DTOs QUE NO CREAMOS (usamos entidades con anotaciones)
+================================================================================
+
+❌ CategoryDTO
+Razón: Category es simple, usamos @JsonIgnore si necesitamos
+
+❌ MaterialDTO
+Razón: Material es simple, sin relaciones complejas
+
+❌ ProductDTO
+Razón: Product funciona bien con @JsonIgnoreProperties
+
+❌ OrderDTO
+Razón: Order funciona bien con @JsonManagedReference
+
+❌ ReviewDTO
+Razón: Review funciona bien con @JsonIgnoreProperties
+
+================================================================================
+CUÁNDO USAR QUÉ
+================================================================================
+
+Caso                      | Solución                    | Razón
+--------------------------|-----------------------------|------------------------
+Crear orden               | CreateOrderRequest (DTO)    | Validaciones diferentes
+Ver orden                 | Order (entidad)             | @JsonManagedReference
+Crear usuario             | RegisterRequest (DTO)       | Sin role/active
+Ver usuario               | User (entidad)              | @JsonIgnore en password
+Login                     | LoginRequest (DTO)          | Solo email + password
+Respuesta login           | AuthResponse (DTO)          | User + JWT token
+Stripe payment            | PaymentIntentResponse (DTO) | No es entidad
+Ver producto              | Product (entidad)           | @JsonIgnoreProperties
+Ver categoría             | Category (entidad)          | Simple
+Errores                   | ErrorResponse (DTO)         | Estandarización
+
+================================================================================
+EJEMPLO COMPLETO EN CONTROLLER
+================================================================================
+
+OrderController usando DTOs:
+
+@RestController
+@RequestMapping("/api/orders")
+public class OrderController {
+    
+    private final OrderService orderService;
+    
+    // Crear orden - USA DTO
+    @PostMapping
+    public ResponseEntity<Order> createOrder(
+        @Valid @RequestBody CreateOrderRequest request
+    ) {
+        Order created = orderService.createOrder(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+    // ✅ Recibe: CreateOrderRequest (DTO)
+    // ✅ Retorna: Order (entidad con @JsonManagedReference)
+    
+    // Ver orden - USA ENTIDAD
+    @GetMapping("/{id}")
+    public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
+        Order order = orderService.getOrderById(id);
+        return ResponseEntity.ok(order);
+    }
+    // ✅ Retorna: Order (entidad)
+    // ✅ NO necesita DTO
+}
+
+ProductController SIN DTOs:
+
+@RestController
+@RequestMapping("/api/products")
+public class ProductController {
+    
+    private final ProductService productService;
+    
+    // Ver productos - USA ENTIDAD directamente
+    @GetMapping
+    public ResponseEntity<List<Product>> getAllProducts() {
+        List<Product> products = productService.getAllActiveProducts();
+        return ResponseEntity.ok(products);
+    }
+    // ✅ Retorna: List<Product> (entidades)
+    // ✅ NO necesita DTO porque @JsonIgnoreProperties maneja todo
+}
+
+CategoryController SIN DTOs:
+
+@RestController
+@RequestMapping("/api/categories")
+public class CategoryController {
+    
+    private final CategoryService categoryService;
+    
+    @GetMapping
+    public ResponseEntity<List<Category>> getAllCategories() {
+        List<Category> categories = categoryService.getAllCategories();
+        return ResponseEntity.ok(categories);
+    }
+    // ✅ Retorna: List<Category> (entidades)
+    // ✅ NO necesita DTO porque Category es simple
+}
+
+================================================================================
+ESTRUCTURA DE ARCHIVOS
+================================================================================
+
+src/main/java/com/joyeria/dto/
+├── CreateOrderRequest.java      ✅ Crear órdenes
+├── OrderItemRequest.java        ✅ Items de la orden
+├── PaymentIntentResponse.java   ✅ Respuesta Stripe
+├── ErrorResponse.java           ✅ Errores
+├── RegisterRequest.java         ✅ Registro
+├── LoginRequest.java            ✅ Login
+└── AuthResponse.java            ✅ Respuesta auth
+
+================================================================================
+VALIDACIONES EN DTOs
+================================================================================
+
+Anotaciones de Jakarta Validation:
+
+@NotNull
+- El campo NO puede ser null
+Ejemplo: @NotNull private Long productId;
+
+@NotBlank
+- String NO puede ser null, vacío ni solo espacios
+Ejemplo: @NotBlank private String email;
+
+@NotEmpty
+- Colección NO puede ser null ni vacía
+Ejemplo: @NotEmpty private List<OrderItemRequest> items;
+
+@Email
+- Valida formato de email
+Ejemplo: @Email private String email;
+
+@Size
+- Valida longitud de String o tamaño de colección
+Ejemplo: @Size(min = 2, max = 100) private String name;
+
+@Min / @Max
+- Valida valor mínimo/máximo de números
+Ejemplo: @Min(1) private Integer quantity;
+
+@Valid
+- Valida objetos anidados
+Ejemplo: @Valid private List<OrderItemRequest> items;
+
+Ejemplo completo:
+
+@Getter
+@Setter
+public class CreateOrderRequest {
+    
+    @NotEmpty(message = "La orden debe tener al menos un producto")
+    @Valid  // Valida cada OrderItemRequest dentro de la lista
+    private List<OrderItemRequest> items;
+    
+    @NotBlank(message = "El email es requerido")
+    @Email(message = "Email inválido")
+    private String customerEmail;
+    
+    @NotBlank(message = "El nombre es requerido")
+    @Size(min = 2, max = 100, message = "Entre 2 y 100 caracteres")
+    private String customerName;
+}
+
+================================================================================
+CÓMO FUNCIONA LA VALIDACIÓN
+================================================================================
+
+1. Cliente envía JSON:
+POST /api/orders
+{
+  "items": [],  // ❌ Lista vacía
+  "customerEmail": "no-es-email",  // ❌ Email inválido
+  "customerName": "J"  // ❌ Muy corto
+}
+
+2. Spring valida automáticamente con @Valid:
+@PostMapping
+public ResponseEntity<Order> createOrder(
+    @Valid @RequestBody CreateOrderRequest request  // ← @Valid activa validaciones
+) {
+    // Si hay errores, NO llega aquí
+}
+
+3. Si hay errores, Spring retorna 400 BAD REQUEST:
+{
+  "timestamp": "2024-02-17T10:00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "La orden debe tener al menos un producto"
+}
+
+4. Si todo es válido, continúa normalmente.
+
+================================================================================
+CONVERSIÓN DTO → ENTIDAD
+================================================================================
+
+En el Service conviertes DTO a Entidad:
+
+@Service
+public class OrderService {
+    
+    public Order createOrder(CreateOrderRequest request) {
+        // 1. Crear entidad Order
+        Order order = new Order();
+        order.setCustomerEmail(request.getCustomerEmail());
+        order.setCustomerName(request.getCustomerName());
+        // ...
+        
+        // 2. Procesar items
+        for (OrderItemRequest itemReq : request.getItems()) {
+            Product product = productService.getById(itemReq.getProductId());
+            
+            OrderItem item = new OrderItem();
+            item.setProduct(product);
+            item.setQuantity(itemReq.getQuantity());
+            item.setPriceAtPurchase(product.getPrice());
+            
+            order.addItem(item);
+        }
+        
+        // 3. Guardar
+        return orderRepository.save(order);
+    }
+}
+
+================================================================================
+BUENAS PRÁCTICAS
+================================================================================
+
+✅ Usa DTOs cuando necesites:
+   - Validaciones diferentes
+   - Ocultar campos sensibles
+   - Estructuras diferentes (request vs response)
+
+✅ Usa anotaciones Jackson cuando:
+   - La entidad es simple
+   - Solo necesitas ocultar algunos campos
+
+✅ Nombra los DTOs descriptivamente:
+   - CreateOrderRequest (no OrderDTO)
+   - RegisterRequest (no UserCreateDTO)
+   - AuthResponse (no LoginResponseDTO)
+
+✅ Valida SIEMPRE con @Valid en el Controller
+
+✅ Convierte DTO → Entidad en el Service, NO en el Controller
+
+✅ Documenta por qué cada DTO existe
+
+❌ NO uses DTOs para todo (sobrecarga innecesaria)
+
+❌ NO pongas lógica de negocio en DTOs (solo datos)
+
+❌ NO conviertas DTO → Entidad en el Controller
+
+❌ NO retornes entidades con información sensible
+
+================================================================================
+RESUMEN
+================================================================================
+
+DTOs son clases para transferir datos entre capas
+- ✅ Protegen información sensible
+- ✅ Evitan ciclos infinitos
+- ✅ Desacoplan frontend de tu BD
+- ✅ Permiten validaciones específicas
+
+Estrategia mixta (DTOs + Anotaciones Jackson):
+- ✅ DTOs solo donde realmente aportan valor (7 archivos)
+- ✅ Anotaciones Jackson para el resto
+- ✅ Balance: simplicidad + buenas prácticas
+
+DTOs creados:
+1. CreateOrderRequest - Crear órdenes con validaciones
+2. OrderItemRequest - Items de la orden
+3. PaymentIntentResponse - Respuesta de Stripe
+4. ErrorResponse - Errores estandarizados
+5. RegisterRequest - Registro de usuarios
+6. LoginRequest - Login de usuarios
+7. AuthResponse - Respuesta de autenticación
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================
