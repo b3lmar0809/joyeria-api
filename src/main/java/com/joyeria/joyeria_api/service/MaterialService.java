@@ -1,5 +1,7 @@
 package com.joyeria.joyeria_api.service;
 
+import com.joyeria.joyeria_api.exception.DuplicateResourceException;
+import com.joyeria.joyeria_api.exception.ResourceNotFoundException;
 import com.joyeria.joyeria_api.model.Material;
 import com.joyeria.joyeria_api.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +19,7 @@ public class MaterialService {
 
     public Material createMaterial(Material material) {
         if (materialRepository.existsByName(material.getName())) {
-            throw new RuntimeException("Ya existe un material con ese nombre");
+            throw new DuplicateResourceException("Material", "name", material.getName());
         }
         return materialRepository.save(material);
     }
@@ -35,11 +37,17 @@ public class MaterialService {
     @Transactional(readOnly = true)
     public Material getMaterialById(Long id) {
         return materialRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Material no encontrado con ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Material", id));
     }
 
     public Material updateMaterial(Long id, Material materialDetails) {
         Material material = getMaterialById(id);
+
+        // validar si el nuevo nombre ya existe en otro material
+        if (!material.getName().equals(materialDetails.getName()) &&
+                materialRepository.existsByName(materialDetails.getName())) {
+            throw new DuplicateResourceException("Material", "name", materialDetails.getName());
+        }
 
         material.setName(materialDetails.getName());
         material.setDescription(materialDetails.getDescription());
@@ -52,6 +60,11 @@ public class MaterialService {
         Material material = getMaterialById(id);
 
         if (materialDetails.getName() != null) {
+            // validar si el nuevo nombre ya existe
+            if (!material.getName().equals(materialDetails.getName()) &&
+                    materialRepository.existsByName(materialDetails.getName())) {
+                throw new DuplicateResourceException("Material", "name", materialDetails.getName());
+            }
             material.setName(materialDetails.getName());
         }
         if (materialDetails.getDescription() != null) {

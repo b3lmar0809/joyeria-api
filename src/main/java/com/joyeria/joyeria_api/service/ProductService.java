@@ -1,5 +1,9 @@
 package com.joyeria.joyeria_api.service;
 
+import com.joyeria.joyeria_api.exception.DuplicateResourceException;
+import com.joyeria.joyeria_api.exception.InsufficientStockException;
+import com.joyeria.joyeria_api.exception.InvalidOperationException;
+import com.joyeria.joyeria_api.exception.ResourceNotFoundException;
 import com.joyeria.joyeria_api.model.Category;
 import com.joyeria.joyeria_api.model.Material;
 import com.joyeria.joyeria_api.model.Product;
@@ -21,21 +25,27 @@ public class ProductService {
     private final MaterialService materialService;
 
     public Product createProduct(Product product) {
+        // Validar SKU duplicado
         if (product.getSku() != null && productRepository.existsBySku(product.getSku())) {
-            throw new RuntimeException("Ya existe un producto con ese SKU");
+            throw new DuplicateResourceException("Product", "SKU", product.getSku());
         }
 
+        // Validar precio
         if (product.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("El precio debe ser mayor a 0");
+            throw new InvalidOperationException("El precio debe ser mayor a 0");
         }
 
+        // Validar stock
         if (product.getStock() < 0) {
-            throw new RuntimeException("El stock no puede ser negativo");
+            throw new InvalidOperationException("El stock no puede ser negativo");
         }
 
+        // Validar descuento
         if (product.getDiscountPrice() != null) {
             if (product.getDiscountPrice().compareTo(product.getPrice()) >= 0) {
-                throw new RuntimeException("El precio con descuento debe ser menor al precio original");
+                throw new InvalidOperationException(
+                        "El precio con descuento debe ser menor al precio original"
+                );
             }
         }
 
@@ -65,13 +75,13 @@ public class ProductService {
     @Transactional(readOnly = true)
     public Product getProductById(Long id) {
         return productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Product", id));
     }
 
     @Transactional(readOnly = true)
     public Product getProductBySku(String sku) {
         return productRepository.findBySku(sku)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado con SKU: " + sku));
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "SKU", sku));
     }
 
     @Transactional(readOnly = true)
@@ -109,6 +119,22 @@ public class ProductService {
     public Product updateProduct(Long id, Product productDetails) {
         Product product = getProductById(id);
 
+        // validar SKU si cambió
+        if (!product.getSku().equals(productDetails.getSku()) &&
+                productRepository.existsBySku(productDetails.getSku())) {
+            throw new DuplicateResourceException("Product", "SKU", productDetails.getSku());
+        }
+
+        // validar precio
+        if (productDetails.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidOperationException("El precio debe ser mayor a 0");
+        }
+
+        // validar stock
+        if (productDetails.getStock() < 0) {
+            throw new InvalidOperationException("El stock no puede ser negativo");
+        }
+
         product.setName(productDetails.getName());
         product.setDescription(productDetails.getDescription());
         product.setPrice(productDetails.getPrice());
@@ -137,19 +163,22 @@ public class ProductService {
             product.setDescription(productDetails.getDescription());
         }
         if (productDetails.getPrice() != null) {
-
             if (productDetails.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new RuntimeException("El precio debe ser mayor a 0");
+                throw new InvalidOperationException("El precio debe ser mayor a 0");
             }
             product.setPrice(productDetails.getPrice());
         }
         if (productDetails.getStock() != null) {
             if (productDetails.getStock() < 0) {
-                throw new RuntimeException("El stock no puede ser negativo");
+                throw new InvalidOperationException("El stock no puede ser negativo");
             }
             product.setStock(productDetails.getStock());
         }
         if (productDetails.getSku() != null) {
+            if (!product.getSku().equals(productDetails.getSku()) &&
+                    productRepository.existsBySku(productDetails.getSku())) {
+                throw new DuplicateResourceException("Product", "SKU", productDetails.getSku());
+            }
             product.setSku(productDetails.getSku());
         }
         if (productDetails.getWeight() != null) {
@@ -175,7 +204,9 @@ public class ProductService {
         }
         if (productDetails.getDiscountPrice() != null) {
             if (productDetails.getDiscountPrice().compareTo(product.getPrice()) >= 0) {
-                throw new RuntimeException("El precio con descuento debe ser menor al precio original");
+                throw new InvalidOperationException(
+                        "El precio con descuento debe ser menor al precio original"
+                );
             }
             product.setDiscountPrice(productDetails.getDiscountPrice());
         }
@@ -190,7 +221,7 @@ public class ProductService {
         Product product = getProductById(id);
 
         if (newStock < 0) {
-            throw new RuntimeException("El stock no puede ser negativo");
+            throw new InvalidOperationException("El stock no puede ser negativo");
         }
 
         product.setStock(newStock);
@@ -201,7 +232,7 @@ public class ProductService {
         Product product = getProductById(id);
 
         if (newPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("El precio debe ser mayor a 0");
+            throw new InvalidOperationException("El precio debe ser mayor a 0");
         }
 
         product.setPrice(newPrice);
@@ -212,7 +243,11 @@ public class ProductService {
         Product product = getProductById(id);
 
         if (product.getStock() < quantity) {
-            throw new RuntimeException("Stock insuficiente. Disponible: " + product.getStock());
+            throw new InsufficientStockException(
+                    product.getName(),
+                    product.getStock(),
+                    quantity
+            );
         }
 
         product.setStock(product.getStock() - quantity);

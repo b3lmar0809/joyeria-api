@@ -1,5 +1,10 @@
 package com.joyeria.joyeria_api.service;
 
+import com.joyeria.joyeria_api.dto.CreateOrderRequest;
+import com.joyeria.joyeria_api.dto.OrderItemRequest;
+import com.joyeria.joyeria_api.exception.InsufficientStockException;
+import com.joyeria.joyeria_api.exception.InvalidOperationException;
+import com.joyeria.joyeria_api.exception.ResourceNotFoundException;
 import com.joyeria.joyeria_api.model.Order;
 import com.joyeria.joyeria_api.model.OrderItem;
 import com.joyeria.joyeria_api.model.OrderStatus;
@@ -21,58 +26,84 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductService productService;
 
-    public Order createOrder(Order order) {
-        if (order.getItems() == null || order.getItems().isEmpty()) {
-            throw new RuntimeException("La orden debe tener al menos un producto");
+    public Order createOrder(CreateOrderRequest request) {
+        // Validar que tenga items
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new InvalidOperationException("La orden debe tener al menos un producto");
         }
+
+        // Crear la orden
+        Order order = new Order();
+        order.setCustomerEmail(request.getCustomerEmail());
+        order.setCustomerName(request.getCustomerName());
+        order.setCustomerPhone(request.getCustomerPhone());
+        order.setShippingAddress(request.getShippingAddress());
+        order.setShippingCity(request.getShippingCity());
+        order.setShippingState(request.getShippingState());
+        order.setShippingPostalCode(request.getShippingPostalCode());
+        order.setShippingCountry(request.getShippingCountry());
+        order.setNotes(request.getNotes());
+        order.setStatus(OrderStatus.PENDING);
 
         BigDecimal subtotal = BigDecimal.ZERO;
 
-        for (OrderItem item : order.getItems()) {
-            Product product = productService.getProductById(item.getProduct().getId());
+        // procesar cada item
+        for (OrderItemRequest itemReq : request.getItems()) {
+            Product product = productService.getProductById(itemReq.getProductId());
 
-            if (product.getStock() < item.getQuantity()) {
-                throw new RuntimeException(
-                        "Stock insuficiente para: " + product.getName() +
-                                ". Disponible: " + product.getStock()
+            // validar stock disponible
+            if (product.getStock() < itemReq.getQuantity()) {
+                throw new InsufficientStockException(
+                        product.getName(),
+                        product.getStock(),
+                        itemReq.getQuantity()
                 );
             }
 
-            item.setPriceAtPurchase(product.getPrice());
-            item.setProductName(product.getName());
-            item.setProductSku(product.getSku());
+            // crear OrderItem
+            OrderItem orderItem = new OrderItem();
+            orderItem.setProduct(product);
+            orderItem.setQuantity(itemReq.getQuantity());
+            orderItem.setPriceAtPurchase(product.getPrice());
+            orderItem.setProductName(product.getName());
+            orderItem.setProductSku(product.getSku());
 
-            BigDecimal itemSubtotal = item.getSubtotal();
-            subtotal = subtotal.add(itemSubtotal);
+            order.addItem(orderItem);
 
-            item.setOrder(order);
+            // calcular subtotal
+            subtotal = subtotal.add(orderItem.getSubtotal());
         }
 
+        // establecer totales
         order.setSubtotal(subtotal);
+        order.setShippingCost(BigDecimal.ZERO);
+        order.setTax(BigDecimal.ZERO);
 
         BigDecimal total = subtotal
                 .add(order.getShippingCost())
                 .add(order.getTax());
         order.setTotalAmount(total);
 
-        order.setStatus(OrderStatus.PENDING);
-
+        // guardar orden
         return orderRepository.save(order);
     }
 
-    public Order markOrderAsPaid(String paymentIntentId) {
+    public  Order markOrderAsPaid(String paymentIntentId) {
         Order order = orderRepository.findByStripePaymentIntentId(paymentIntentId)
-                .orElseThrow(() -> new RuntimeException(
-                        "Orden no encontrada para PaymentIntent: " + paymentIntentId
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Order", "paymentIntentId", paymentIntentId
                 ));
 
+        // si ya está pagada, no hacer nada
         if (order.getStatus() == OrderStatus.PAID) {
             return order;
         }
 
+        // marcar como pagada
         order.setStatus(OrderStatus.PAID);
         order.setPaidAt(LocalDateTime.now());
 
+        // reducir stock de los productos
         for (OrderItem item : order.getItems()) {
             productService.reduceStock(
                     item.getProduct().getId(),
@@ -86,7 +117,7 @@ public class OrderService {
     @Transactional(readOnly = true)
     public Order getOrderById(Long id) {
         return orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Orden no encontrada con ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Order", id));
     }
 
     @Transactional(readOnly = true)

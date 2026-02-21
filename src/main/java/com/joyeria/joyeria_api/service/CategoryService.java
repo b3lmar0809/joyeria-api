@@ -1,5 +1,6 @@
 package com.joyeria.joyeria_api.service;
-
+import com.joyeria.joyeria_api.exception.DuplicateResourceException;
+import com.joyeria.joyeria_api.exception.ResourceNotFoundException;
 import com.joyeria.joyeria_api.model.Category;
 import com.joyeria.joyeria_api.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ public class CategoryService {
 
     public Category createCategory(Category category) {
         if (categoryRepository.existsByName(category.getName())) {
-            throw new RuntimeException("Ya existe una categoría con ese nombre");
+            throw new DuplicateResourceException("Category", "name", category.getName());
         }
         return categoryRepository.save(category);
     }
@@ -35,11 +36,17 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public Category getCategoryById(Long id) {
         return categoryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Categoría no encontrada con ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Category", id));
     }
 
     public Category updateCategory(Long id, Category categoryDetails) {
         Category category = getCategoryById(id);
+
+        // validar si el nuevo nombre ya existe en otra categoría
+        if (!category.getName().equals(categoryDetails.getName()) &&
+                categoryRepository.existsByName(categoryDetails.getName())) {
+            throw new DuplicateResourceException("Category", "name", categoryDetails.getName());
+        }
 
         category.setName(categoryDetails.getName());
         category.setDescription(categoryDetails.getDescription());
@@ -53,6 +60,11 @@ public class CategoryService {
         Category category = getCategoryById(id);
 
         if (categoryDetails.getName() != null) {
+            // validar si el nuevo nombre ya existe
+            if (!category.getName().equals(categoryDetails.getName()) &&
+                    categoryRepository.existsByName(categoryDetails.getName())) {
+                throw new DuplicateResourceException("Category", "name", categoryDetails.getName());
+            }
             category.setName(categoryDetails.getName());
         }
         if (categoryDetails.getDescription() != null) {
