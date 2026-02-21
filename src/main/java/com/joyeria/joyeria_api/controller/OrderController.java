@@ -1,5 +1,6 @@
 package com.joyeria.joyeria_api.controller;
 
+import com.joyeria.joyeria_api.dto.CreateOrderRequest;
 import com.joyeria.joyeria_api.model.Order;
 import com.joyeria.joyeria_api.model.OrderStatus;
 import com.joyeria.joyeria_api.service.OrderService;
@@ -30,7 +31,7 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<Order> createOrder(@Valid @RequestBody Order order) {
+    public ResponseEntity<Order> createOrder(@Valid @RequestBody CreateOrderRequest order) {
         Order created = orderService.createOrder(order);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

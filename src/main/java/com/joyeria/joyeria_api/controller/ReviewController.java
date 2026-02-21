@@ -1,6 +1,12 @@
 package com.joyeria.joyeria_api.controller;
 
+import com.joyeria.joyeria_api.dto.CheckUserReviewResponse;
+import com.joyeria.joyeria_api.dto.CreateReviewRequest;
+import com.joyeria.joyeria_api.dto.ProductReviewStatsResponse;
+import com.joyeria.joyeria_api.dto.RatingDistributionResponse;
+import com.joyeria.joyeria_api.model.Product;
 import com.joyeria.joyeria_api.model.Review;
+import com.joyeria.joyeria_api.service.ProductService;
 import com.joyeria.joyeria_api.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/reviews")
@@ -28,10 +34,18 @@ import java.util.Map;
 public class ReviewController {
 
     private final ReviewService reviewService;
+    private final ProductService productService;
 
-    // crear una nueva reseña { "productId": 1, "userId": 5, "rating": 5, "comment": "Excelente" }
     @PostMapping
-    public ResponseEntity<Review> createReview(@Valid @RequestBody Review review) {
+    public ResponseEntity<Review> createReview(@Valid @RequestBody CreateReviewRequest request) {
+        // convertir DTO a entidad
+        Product product = productService.getProductById(request.getProductId());
+        // User user = userService.getUserById(request.getUserId())
+        Review review = new Review();
+        review.setProduct(product);
+        review.setRating(request.getRating());
+        review.setComment(request.getComment());
+
         Review created = reviewService.createReview(review);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -42,66 +56,73 @@ public class ReviewController {
         return ResponseEntity.ok(review);
     }
 
-    // obtener reseñas aprobadas de un producto
     @GetMapping("/product/{productId}")
     public ResponseEntity<List<Review>> getReviewsByProduct(@PathVariable Long productId) {
         List<Review> reviews = reviewService.getApprovedReviewsByProduct(productId);
         return ResponseEntity.ok(reviews);
     }
 
-    // obtener calificaciin promedio de un producto (4.5)
     @GetMapping("/product/{productId}/average")
     public ResponseEntity<Double> getAverageRating(@PathVariable Long productId) {
         Double average = reviewService.getAverageRating(productId);
         return ResponseEntity.ok(average);
     }
 
-
-     //contar reseñas de un producto
     @GetMapping("/product/{productId}/count")
     public ResponseEntity<Long> countReviews(@PathVariable Long productId) {
         Long count = reviewService.countReviewsByProduct(productId);
         return ResponseEntity.ok(count);
     }
 
-    //obtener distribucion de calificaciones
-    //retorna: [[5, 10], [4, 5], [3, 2], [2, 1], [1, 0]]
-    // significa que 10 reseñas de 5 estrellas, 5 de 4 estrellas
 
     @GetMapping("/product/{productId}/distribution")
-    public ResponseEntity<List<Object[]>> getRatingDistribution(@PathVariable Long productId) {
-        List<Object[]> distribution = reviewService.getRatingDistribution(productId);
+    public ResponseEntity<List<RatingDistributionResponse>> getRatingDistribution(
+            @PathVariable Long productId
+    ) {
+        List<Object[]> rawDistribution = reviewService.getRatingDistribution(productId);
+
+        // convertir List<Object[]> a List<RatingDistributionResponse>
+        List<RatingDistributionResponse> distribution = rawDistribution.stream()
+                .map(arr -> new RatingDistributionResponse(
+                        (Integer) arr[0],  // rating
+                        (Long) arr[1]      // count
+                ))
+                .collect(Collectors.toList());
+
         return ResponseEntity.ok(distribution);
     }
 
     @GetMapping("/product/{productId}/stats")
-    public ResponseEntity<Map<String, Object>> getProductReviewStats(@PathVariable Long productId) {
+    public ResponseEntity<ProductReviewStatsResponse> getProductReviewStats(
+            @PathVariable Long productId
+    ) {
         Double average = reviewService.getAverageRating(productId);
         Long count = reviewService.countReviewsByProduct(productId);
-        List<Object[]> distribution = reviewService.getRatingDistribution(productId);
+        List<Object[]> rawDistribution = reviewService.getRatingDistribution(productId);
 
-        Map<String, Object> stats = Map.of(
-                "average", average,
-                "count", count,
-                "distribution", distribution
-        );
+        // convertir distribucion a DTO
+        List<RatingDistributionResponse> distribution = rawDistribution.stream()
+                .map(arr -> new RatingDistributionResponse(
+                        (Integer) arr[0],
+                        (Long) arr[1]
+                ))
+                .collect(Collectors.toList());
+
+        // crear response DTO
+        ProductReviewStatsResponse stats = new ProductReviewStatsResponse(average, count, distribution);
 
         return ResponseEntity.ok(stats);
     }
 
-
-     //verificar si un usuario ya reseñó un producto
-
     @GetMapping("/check")
-    public ResponseEntity<Map<String, Boolean>> checkUserReview(
+    public ResponseEntity<CheckUserReviewResponse> checkUserReview(
             @RequestParam Long userId,
             @RequestParam Long productId
     ) {
         Boolean hasReviewed = reviewService.hasUserReviewedProduct(userId, productId);
-        return ResponseEntity.ok(Map.of("hasReviewed", hasReviewed));
+        CheckUserReviewResponse response = new CheckUserReviewResponse(hasReviewed);
+        return ResponseEntity.ok(response);
     }
-
-    // obtener reseñas pendientes de aprobación solo para administradores
 
     @GetMapping("/pending")
     public ResponseEntity<List<Review>> getPendingReviews() {
@@ -109,7 +130,6 @@ public class ReviewController {
         return ResponseEntity.ok(reviews);
     }
 
-    //actualizar completamente una reseña solo el usuario puede editar
     @PutMapping("/{id}")
     public ResponseEntity<Review> updateReview(
             @PathVariable Long id,
@@ -128,15 +148,12 @@ public class ReviewController {
         return ResponseEntity.ok(updated);
     }
 
-    //aprobar una reseña solo para administradores
-
     @PatchMapping("/{id}/approve")
     public ResponseEntity<Review> approveReview(@PathVariable Long id) {
         Review approved = reviewService.approveReview(id);
         return ResponseEntity.ok(approved);
     }
 
-    // desaprobar una reseña solo para administradores
     @PatchMapping("/{id}/disapprove")
     public ResponseEntity<Review> disapproveReview(@PathVariable Long id) {
         Review disapproved = reviewService.disapproveReview(id);
