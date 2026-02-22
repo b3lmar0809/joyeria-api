@@ -1,5 +1,6 @@
 package com.joyeria.joyeria_api.security;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
@@ -12,6 +13,7 @@ import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * JwtUtils class
@@ -51,5 +53,40 @@ public class JwtUtils {
     private Key getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKay);
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    //validando token con los datos del usuario (userDatails) retornondo si es true
+    public Boolean validateToken(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    }
+
+    // extra el user del token
+    public String extractUsername(String token){
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    //extra fecha de expiracion
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    //extrae el claim especifico
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    //extrae todos los claim
+    private Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private Boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
     }
 }
