@@ -27,10 +27,10 @@ import java.util.function.Function;
 public class JwtUtils {
 
     @Value("${jwt.secret}")
-    private String secretKay;
+    private String secretKey;
 
     @Value("${jwt.expiration}")
-    private String Experation;
+    private Long  expiration;
 
     //generando token con la weaita de JWT
     public String generateToken(UserDetails userDetails) {
@@ -44,14 +44,14 @@ public class JwtUtils {
                 .setClaims(claims)
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis()))
-                .signWith(getSigningKey(), SignatureAlgorithm.ES256)
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
     // obteniendo token
     private Key getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secretKay);
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -62,7 +62,7 @@ public class JwtUtils {
     }
 
     // extra el user del token
-    public String extractUsername(String token){
+    public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
@@ -79,7 +79,7 @@ public class JwtUtils {
 
     //extrae todos los claim
     private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
+        return Jwts.parser()
                 .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)

@@ -6,6 +6,7 @@ import com.joyeria.joyeria_api.model.Role;
 import com.joyeria.joyeria_api.model.User;
 import com.joyeria.joyeria_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @Since: 1.0.0 2026/02/22
  */
 @Service
+@Primary
 @Transactional
 @RequiredArgsConstructor
 public class UserService implements UserDetailsService {
