@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -22,7 +23,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
+/**
+ * Product class
+ *
+ * @Version: 1.0.1 - 24 feb. 2026
+ * @Author: Matias Belmar - mati.belmar0625@gmail.com
+ * @Since: 1.0.0 13 feb. 2026
+ **/
 @Entity
 @Table(name = "products")
 @Getter
@@ -101,10 +108,21 @@ public class Product {
     // fecha de ultima modificación
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    // @PreUpdate se ejecuta automáaicamente ANTES de actualizar el registro
-    // Actualizamos la fecha de modificacion cada vez que se edita el product
+    //SE EJECUTA ANTES DE GUARDAR (INSERT)
+    @PrePersist
+    protected void onCreate() {
+        if (this.active == null) {
+            this.active = true;
+        }
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
+
+    //SE EJECUTA ANTES DE ACTUALIZAR (UPDATE)
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
+
 }
