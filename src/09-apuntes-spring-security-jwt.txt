@@ -1,0 +1,1012 @@
+================================================================================
+                    09 - SPRING SECURITY + JWT
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+¿Qué es Spring Security?
+- Framework de seguridad para aplicaciones Spring
+- Maneja autenticación (quién eres) y autorización (qué puedes hacer)
+- Protege endpoints de accesos no autorizados
+
+¿Qué es JWT (JSON Web Token)?
+- Token que contiene información del usuario de forma segura
+- Se envía en cada petición para identificar al usuario
+- No necesita guardar sesiones en el servidor (stateless)
+
+================================================================================
+FLUJO DE AUTENTICACIÓN
+================================================================================
+
+1. Usuario se registra o hace login
+2. Backend valida credenciales
+3. Backend genera un TOKEN JWT
+4. Frontend guarda el token (localStorage)
+5. Frontend envía el token en cada petición
+6. Backend valida el token y permite/deniega acceso
+
+Ejemplo:
+POST /api/auth/login
+Body: { "email": "juan@email.com", "password": "123456" }
+
+Response:
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "type": "Bearer",
+  "id": 1,
+  "email": "juan@email.com"
+}
+
+Luego el frontend usa el token:
+GET /api/orders
+Headers: Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+================================================================================
+ESTRUCTURA DE UN JWT
+================================================================================
+
+Un JWT tiene 3 partes separadas por puntos:
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqd...
+|           HEADER            |     PAYLOAD      | SIGNATURE |
+
+1. HEADER
+{
+  "alg": "HS256",     // Algoritmo de encriptación
+  "typ": "JWT"        // Tipo de token
+}
+
+2. PAYLOAD (Claims)
+{
+  "sub": "juan@email.com",   // Subject (usuario)
+  "iat": 1677649200,          // Issued At (cuándo se creó)
+  "exp": 1677735600           // Expiration (cuándo expira)
+}
+
+3. SIGNATURE
+- Firma digital para verificar que el token no fue modificado
+- Se genera con: HMACSHA256(header + payload + SECRET_KEY)
+
+================================================================================
+ARCHIVOS NECESARIOS
+================================================================================
+
+src/main/java/com/joyeria/
+├── model/
+│   ├── User.java                       ✅ Implementa UserDetails
+│   └── Role.java                       ✅ Enum (CUSTOMER, ADMIN)
+├── repository/
+│   └── UserRepository.java             ✅ findByEmail, existsByEmail
+├── service/
+│   └── UserService.java                ✅ Implementa UserDetailsService
+├── security/
+│   ├── JwtUtils.java                   ✅ Generar y validar tokens
+│   └── JwtAuthenticationFilter.java    ✅ Interceptar requests
+├── config/
+│   ├── SecurityConfig.java             ✅ Configuración de seguridad
+│   └── CorsConfig.java                 ✅ Configuración CORS
+├── controller/
+│   └── AuthController.java             ✅ Login y registro
+└── dto/
+    ├── RegisterRequest.java            ✅ DTO para registro
+    ├── LoginRequest.java               ✅ DTO para login
+    └── AuthResponse.java               ✅ DTO respuesta con token
+
+================================================================================
+1. USER.JAVA - Implementa UserDetails
+================================================================================
+
+User debe implementar UserDetails para que Spring Security lo reconozca.
+
+@Entity
+@Table(name = "users")
+public class User implements UserDetails {
+    
+    private Long id;
+    private String email;
+    
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String password;
+    
+    @JsonIgnore
+    private Role role;
+    
+    @JsonIgnore
+    private Boolean active;
+    
+    // Métodos de UserDetails
+    
+    @Override
+    @JsonIgnore
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+    }
+    
+    @Override
+    @JsonIgnore
+    public String getUsername() {
+        return email;  // Usamos email como username
+    }
+    
+    @Override
+    @JsonIgnore
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+    
+    @Override
+    @JsonIgnore
+    public boolean isAccountNonLocked() {
+        return active;
+    }
+    
+    @Override
+    @JsonIgnore
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+    
+    @Override
+    @JsonIgnore
+    public boolean isEnabled() {
+        return active;
+    }
+}
+
+¿Por qué @JsonIgnore?
+- Los métodos de UserDetails NO deben aparecer en el JSON
+- Solo queremos enviar: id, email, firstName, lastName
+
+================================================================================
+2. USERSERVICE.JAVA - Implementa UserDetailsService
+================================================================================
+
+UserService implementa UserDetailsService para que Spring Security 
+pueda cargar usuarios.
+
+@Service
+@RequiredArgsConstructor
+public class UserService implements UserDetailsService {
+    
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    
+    // Método REQUERIDO por UserDetailsService
+    @Override
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        return userRepository.findByEmail(email)
+            .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + email));
+    }
+    
+    // Registrar nuevo usuario
+    public User registerUser(User user) {
+        // Validar email duplicado
+        if (userRepository.existsByEmail(user.getEmail())) {
+            throw new DuplicateResourceException("User", "email", user.getEmail());
+        }
+        
+        // Encriptar contraseña con BCrypt
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        
+        // Asignar role por defecto
+        if (user.getRole() == null) {
+            user.setRole(Role.CUSTOMER);
+        }
+        
+        user.setActive(true);
+        
+        return userRepository.save(user);
+    }
+}
+
+¿Qué hace loadUserByUsername?
+- Spring Security lo llama para validar credenciales
+- Busca el usuario por email en la BD
+- Retorna el User (que implementa UserDetails)
+
+¿Por qué encriptar la contraseña?
+- NUNCA guardar contraseñas en texto plano
+- BCrypt es un algoritmo seguro de encriptación
+- Cada vez genera un hash diferente (incluye salt)
+
+================================================================================
+3. JWTUTILS.JAVA - Generar y Validar Tokens
+================================================================================
+
+@Component
+public class JwtUtils {
+    
+    @Value("${jwt.secret}")
+    private String secretKey;  // Clave secreta para firmar tokens
+    
+    @Value("${jwt.expiration}")
+    private Long expiration;   // Tiempo de expiración en milisegundos
+    
+    // Generar token JWT
+    public String generateToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(userDetails.getUsername())  // Email del usuario
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+    
+    // Validar token
+    public Boolean validateToken(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    }
+    
+    // Extraer email del token
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+    
+    // Verificar si expiró
+    private Boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+}
+
+Configuración en application.properties:
+jwt.secret=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+jwt.expiration=86400000
+# 86400000 ms = 24 horas
+
+¿Por qué 24 horas?
+- Balance entre seguridad y experiencia de usuario
+- Si quieres más seguridad: 1 hora (3600000)
+- Si quieres más comodidad: 7 días (604800000)
+
+================================================================================
+4. JWTAUTHENTICATIONFILTER.JAVA - Interceptar Requests
+================================================================================
+
+Este filtro intercepta CADA request para validar el token JWT.
+
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    
+    private final JwtUtils jwtUtils;
+    private final UserDetailsService userDetailsService;
+    
+    @Override
+    protected void doFilterInternal(
+        HttpServletRequest request,
+        HttpServletResponse response,
+        FilterChain filterChain
+    ) throws ServletException, IOException {
+        
+        // 1. Obtener header Authorization
+        final String authHeader = request.getHeader("Authorization");
+        
+        // 2. Si no hay header o no empieza con "Bearer ", continuar sin autenticar
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        
+        // 3. Extraer token (quitar "Bearer ")
+        final String jwt = authHeader.substring(7);
+        final String userEmail = jwtUtils.extractUsername(jwt);
+        
+        // 4. Si hay email y no está autenticado aún
+        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            
+            // 5. Cargar usuario de la BD
+            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            
+            // 6. Validar token
+            if (jwtUtils.validateToken(jwt, userDetails)) {
+                
+                // 7. Crear autenticación
+                UsernamePasswordAuthenticationToken authToken = 
+                    new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                    );
+                
+                // 8. Establecer autenticación en el contexto
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+        }
+        
+        // 9. Continuar con el siguiente filtro
+        filterChain.doFilter(request, response);
+    }
+}
+
+Flujo paso a paso:
+1. Request llega: GET /api/orders
+2. Filtro extrae token del header
+3. Valida que el token sea válido
+4. Carga el usuario de la BD
+5. Establece la autenticación
+6. El request continúa al Controller
+
+================================================================================
+5. SECURITYCONFIG.JAVA - Configuración Principal
+================================================================================
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+    
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final UserService userService;
+    private final CorsConfigurationSource corsConfigurationSource;
+    
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
+            .csrf(csrf -> csrf.disable())  // Deshabilitamos CSRF (usamos JWT)
+            .authorizeHttpRequests(auth -> auth
+                // Endpoints PÚBLICOS (sin autenticación)
+                .requestMatchers(
+                    "/api/auth/**",           // Login y registro
+                    "/api/products/**",       // Ver productos
+                    "/api/categories/**",     // Ver categorías
+                    "/api/materials/**",      // Ver materiales
+                    "/api/reviews/product/**",// Ver reseñas
+                    "/api/webhooks/**"        // Webhooks de Stripe
+                ).permitAll()
+                
+                // Endpoints de ADMIN
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                
+                // Todo lo demás requiere autenticación
+                .anyRequest().authenticated()
+            )
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)  // Sin sesiones
+            )
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        
+        return http.build();
+    }
+    
+    @Bean
+    public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
+        AuthenticationManagerBuilder authManagerBuilder = 
+            http.getSharedObject(AuthenticationManagerBuilder.class);
+        
+        authManagerBuilder
+            .userDetailsService(userService)
+            .passwordEncoder(passwordEncoder());
+        
+        return authManagerBuilder.build();
+    }
+    
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+
+Decisiones importantes:
+- csrf().disable() → No necesitamos CSRF con JWT
+- STATELESS → No guardamos sesiones en el servidor
+- hasRole("ADMIN") → Solo admins pueden acceder a /api/admin/**
+
+================================================================================
+6. CORSCONFIG.JAVA - Permitir Requests del Frontend
+================================================================================
+
+@Configuration
+public class CorsConfig {
+    
+    @Value("${cors.allowed.origins}")
+    private String allowedOrigins;
+    
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // Orígenes permitidos (frontend)
+        configuration.setAllowedOrigins(
+            Arrays.asList(allowedOrigins.split(","))
+        );
+        
+        // Métodos HTTP permitidos
+        configuration.setAllowedMethods(
+            Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        );
+        
+        // Headers permitidos
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        
+        // Permitir credenciales
+        configuration.setAllowCredentials(true);
+        
+        // Aplicar a todas las rutas
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        
+        return source;
+    }
+}
+
+Configuración en application.properties:
+cors.allowed.origins=http://localhost:5173,http://localhost:3000
+
+¿Qué es CORS?
+- Cross-Origin Resource Sharing
+- Permite que tu frontend (localhost:5173) llame al backend (localhost:8080)
+- Sin CORS, el navegador bloquea las peticiones
+
+================================================================================
+7. AUTHCONTROLLER.JAVA - Login y Registro
+================================================================================
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+    
+    private final AuthenticationManager authenticationManager;
+    private final UserService userService;
+    private final JwtUtils jwtUtils;
+    
+    // Registro
+    @PostMapping("/register")
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+        // Crear usuario
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setPassword(request.getPassword());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        
+        // Registrar (encripta password automáticamente)
+        User registered = userService.registerUser(user);
+        
+        // Generar token JWT
+        String token = jwtUtils.generateToken(registered);
+        
+        // Retornar respuesta con token
+        AuthResponse response = new AuthResponse(
+            token,
+            "Bearer",
+            registered.getId(),
+            registered.getEmail(),
+            registered.getFirstName(),
+            registered.getLastName()
+        );
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+    
+    // Login
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+        // Autenticar con Spring Security
+        Authentication authentication = authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(
+                request.getEmail(),
+                request.getPassword()
+            )
+        );
+        
+        // Obtener usuario autenticado
+        User user = (User) authentication.getPrincipal();
+        
+        // Generar token JWT
+        String token = jwtUtils.generateToken(user);
+        
+        // Retornar respuesta con token
+        AuthResponse response = new AuthResponse(
+            token,
+            "Bearer",
+            user.getId(),
+            user.getEmail(),
+            user.getFirstName(),
+            user.getLastName()
+        );
+        
+        return ResponseEntity.ok(response);
+    }
+}
+
+Flujo de Login:
+1. Frontend envía email + password
+2. AuthenticationManager valida credenciales
+3. Si son correctas, genera token JWT
+4. Frontend guarda el token
+5. Frontend envía token en cada request posterior
+
+================================================================================
+EJEMPLO COMPLETO DE USO
+================================================================================
+
+1. REGISTRO
+POST http://localhost:8080/api/auth/register
+Body:
+{
+  "email": "juan@email.com",
+  "password": "123456",
+  "firstName": "Juan",
+  "lastName": "Pérez"
+}
+
+Response (201):
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "type": "Bearer",
+  "id": 1,
+  "email": "juan@email.com",
+  "firstName": "Juan",
+  "lastName": "Pérez"
+}
+
+2. LOGIN
+POST http://localhost:8080/api/auth/login
+Body:
+{
+  "email": "juan@email.com",
+  "password": "123456"
+}
+
+Response (200):
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "type": "Bearer",
+  "id": 1,
+  "email": "juan@email.com",
+  "firstName": "Juan",
+  "lastName": "Pérez"
+}
+
+3. USAR TOKEN EN ENDPOINTS PROTEGIDOS
+POST http://localhost:8080/api/orders
+Headers:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Body:
+{
+  "items": [...],
+  "customerEmail": "juan@email.com",
+  ...
+}
+
+Response (201):
+{
+  "id": 1,
+  "status": "PENDING",
+  ...
+}
+
+4. INTENTAR SIN TOKEN (FALLA)
+POST http://localhost:8080/api/orders
+(sin header Authorization)
+
+Response (403):
+{
+  "status": 403,
+  "error": "Forbidden",
+  "message": "Access Denied"
+}
+
+================================================================================
+ENDPOINTS PÚBLICOS VS PROTEGIDOS
+================================================================================
+
+PÚBLICOS (sin token):
+✅ POST /api/auth/register
+✅ POST /api/auth/login
+✅ GET /api/products
+✅ GET /api/products/1
+✅ GET /api/categories
+✅ GET /api/materials
+✅ GET /api/reviews/product/1
+
+PROTEGIDOS (requieren token):
+🔒 POST /api/orders
+🔒 GET /api/orders/1
+🔒 POST /api/reviews
+🔒 PATCH /api/reviews/1/approve
+🔒 POST /api/products (crear)
+🔒 PUT /api/products/1 (actualizar)
+
+SOLO ADMIN:
+👑 GET /api/admin/**
+👑 PATCH /api/reviews/1/approve
+
+================================================================================
+BUENAS PRÁCTICAS
+================================================================================
+
+✅ NUNCA guardar contraseñas en texto plano (usar BCrypt)
+✅ NUNCA exponer el secret key en código (usar variables de entorno)
+✅ Token expiration razonable (24 horas es común)
+✅ HTTPS en producción (JWT viaja en headers)
+✅ Validar SIEMPRE el token en cada request
+✅ Usar roles para controlar accesos (CUSTOMER vs ADMIN)
+
+❌ NO enviar contraseña en respuestas (@JsonProperty(WRITE_ONLY))
+❌ NO guardar tokens en cookies (mejor localStorage en frontend)
+❌ NO usar tokens sin expiración
+❌ NO enviar información sensible en el payload del JWT
+
+================================================================================
+SOLUCIÓN DE PROBLEMAS COMUNES
+================================================================================
+
+PROBLEMA 1: Dependencia Circular
+Error: "The dependencies of some of the beans form a cycle"
+
+Causa: 
+- JwtAuthenticationFilter necesita UserDetailsService (UserService)
+- UserService necesita PasswordEncoder
+- SecurityConfig crea PasswordEncoder pero también necesita JwtAuthenticationFilter
+
+Solución: Crear PasswordEncoderConfig separado
+
+@Configuration
+public class PasswordEncoderConfig {
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+
+Luego en SecurityConfig INYECTAR (no crear):
+private final PasswordEncoder passwordEncoder;
+
+public SecurityConfig(..., PasswordEncoder passwordEncoder) {
+    this.passwordEncoder = passwordEncoder;
+}
+
+// ❌ ELIMINAR este método de SecurityConfig:
+// @Bean
+// public PasswordEncoder passwordEncoder() { ... }
+
+================================================================================
+
+PROBLEMA 2: Cannot resolve method 'setUserDetailsService'
+Error: "Expected 1 argument but found 0"
+
+Causa: Problemas de versión o configuración del AuthenticationManager
+
+Solución: Usar AuthenticationManagerBuilder
+
+@Bean
+public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
+    AuthenticationManagerBuilder authManagerBuilder = 
+        http.getSharedObject(AuthenticationManagerBuilder.class);
+    
+    authManagerBuilder
+        .userDetailsService(userService)
+        .passwordEncoder(passwordEncoder);
+    
+    return authManagerBuilder.build();
+}
+
+================================================================================
+
+PROBLEMA 3: Campo 'active' NULL en BD
+Error: "null value in column 'active' violates not-null constraint"
+
+Causa: El valor por defecto en Java NO se aplica automáticamente en JPA
+
+Solución: Usar @PrePersist en TODAS las entidades
+
+@Entity
+public class Material {
+    @Column(nullable = false)
+    private Boolean active;
+    
+    @PrePersist
+    public void prePersist() {
+        if (this.active == null) {
+            this.active = true;
+        }
+    }
+}
+
+Aplicar en: Category, Material, Product
+
+================================================================================
+
+PROBLEMA 4: Cannot deserialize Material/Category desde JSON
+Error: "Cannot construct instance of Material (no delegate-or property-based Creator)"
+
+Causa: Jackson no puede crear instancias solo con el ID
+
+Solución: Agregar constructor con @JsonCreator
+
+@Entity
+@NoArgsConstructor  // ← Solo este (quitar @AllArgsConstructor)
+public class Material {
+    
+    // ✅ Constructor para Jackson
+    @JsonCreator
+    public Material(@JsonProperty("id") Long id) {
+        this.id = id;
+    }
+}
+
+Aplicar en: Category y Material
+
+IMPORTANTE: En el JSON enviar:
+{ "material": { "id": 1 } }  // ✅ Correcto
+{ "material": { "name": "Oro" } }  // ❌ Incorrecto
+
+================================================================================
+
+PROBLEMA 5: Access Denied (403) en endpoints
+Error: "Access Denied" o status 403
+
+Causa 1: No estás enviando el token JWT
+
+Solución:
+- Hacer login primero para obtener el token
+- Configurar Authorization en Postman:
+  Type: Bearer Token
+  Token: {{token}}
+
+Causa 2: El endpoint requiere autenticación pero está en .permitAll()
+
+Solución: Verificar SecurityConfig
+
+.requestMatchers(
+    "/api/auth/**",      // ✅ Público
+    "/api/products/**"   // ✅ Público
+).permitAll()
+.anyRequest().authenticated()  // ← Otros endpoints requieren token
+
+================================================================================
+
+PROBLEMA 6: Token inválido o expirado
+Error: Token validation failed
+
+Solución:
+- Verificar que jwt.secret es el mismo al generar y validar
+- Verificar que el token no expiró (jwt.expiration)
+- Hacer login de nuevo para obtener un token nuevo
+
+================================================================================
+
+PROBLEMA 7: CORS bloqueando requests
+Error: "CORS policy: No 'Access-Control-Allow-Origin' header"
+
+Solución: Crear CorsConfig
+
+@Configuration
+public class CorsConfig {
+    @Value("${cors.allowed.origins}")
+    private String allowedOrigins;
+    
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+}
+
+Y en SecurityConfig:
+.cors(cors -> cors.configurationSource(corsConfigurationSource))
+
+application.properties:
+cors.allowed.origins=http://localhost:5173,http://localhost:3000
+
+================================================================================
+
+PROBLEMA 8: Usuario no se autentica después de login
+Error: Authentication failed
+
+Causa: User no implementa UserDetails correctamente
+
+Solución: Verificar estos métodos en User.java
+
+@Override
+public String getUsername() {
+    return email;  // ← Debe retornar el email
+}
+
+@Override
+public Collection<? extends GrantedAuthority> getAuthorities() {
+    return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+}
+
+@Override
+public boolean isEnabled() {
+    return active;  // ← Usuario debe estar activo
+}
+
+================================================================================
+
+PROBLEMA 9: Validation error en Order/Review
+Error: "productId is required" o "userId is required"
+
+Causa: Estás enviando objetos completos en vez de solo IDs
+
+Incorrecto:
+{
+  "product": {
+    "name": "Anillo",
+    "price": 1000
+  }
+}
+
+Correcto:
+{
+  "product": {
+    "id": 1
+  }
+}
+
+================================================================================
+
+PROBLEMA 10: JwtUtils - String vs Long en expiration
+Error: Type mismatch o compilation error
+
+Causa: expiration debe ser Long, no String
+
+Incorrecto:
+@Value("${jwt.expiration}")
+private String expiration;
+
+Correcto:
+@Value("${jwt.expiration}")
+private Long expiration;
+
+application.properties:
+jwt.expiration=86400000
+
+================================================================================
+
+================================================================================
+RESUMEN
+================================================================================
+
+Spring Security + JWT:
+- ✅ User implementa UserDetails
+- ✅ UserService implementa UserDetailsService
+- ✅ JwtUtils genera y valida tokens
+- ✅ JwtAuthenticationFilter intercepta requests
+- ✅ SecurityConfig configura seguridad
+- ✅ CorsConfig permite requests del frontend
+- ✅ AuthController maneja login y registro
+
+Flujo completo:
+1. Usuario se registra → recibe token
+2. Usuario hace login → recibe token
+3. Frontend guarda token
+4. Frontend envía token en cada request
+5. Backend valida token y permite/deniega acceso
+
+================================================================================
+ESTRUCTURA FINAL DE ARCHIVOS DE SEGURIDAD
+================================================================================
+
+src/main/java/com/joyeria/
+├── config/
+│   ├── SecurityConfig.java              ✅ Configuración de seguridad
+│   ├── PasswordEncoderConfig.java       ✅ Bean de PasswordEncoder (separado)
+│   └── CorsConfig.java                  ✅ Configuración CORS
+├── security/
+│   ├── JwtUtils.java                    ✅ Generar y validar tokens JWT
+│   └── JwtAuthenticationFilter.java     ✅ Interceptar requests con JWT
+├── service/
+│   └── UserService.java                 ✅ Implementa UserDetailsService
+├── controller/
+│   └── AuthController.java              ✅ Login y registro
+├── model/
+│   ├── User.java                        ✅ Implementa UserDetails
+│   ├── Role.java                        ✅ Enum (CUSTOMER, ADMIN)
+│   ├── Category.java                    ✅ Con @PrePersist y @JsonCreator
+│   ├── Material.java                    ✅ Con @PrePersist y @JsonCreator
+│   └── Product.java                     ✅ Con @PrePersist
+├── repository/
+│   └── UserRepository.java              ✅ findByEmail, existsByEmail
+└── dto/
+    ├── RegisterRequest.java             ✅ DTO para registro
+    ├── LoginRequest.java                ✅ DTO para login
+    └── AuthResponse.java                ✅ DTO respuesta con token
+
+================================================================================
+CONFIGURACIÓN COMPLETA EN APPLICATION.PROPERTIES
+================================================================================
+
+# JWT Configuration
+jwt.secret=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+jwt.expiration=86400000
+
+# CORS Configuration
+cors.allowed.origins=http://localhost:5173,http://localhost:3000
+
+# PostgreSQL (Neon)
+spring.datasource.url=jdbc:postgresql://host/database?sslmode=require
+spring.datasource.username=usuario
+spring.datasource.password=password
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# JPA/Hibernate
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+================================================================================
+CHECKLIST DE IMPLEMENTACIÓN
+================================================================================
+
+✅ PASO 1: Dependencias en pom.xml
+- spring-boot-starter-security
+- jjwt-api (0.12.3)
+- jjwt-impl (0.12.3)
+- jjwt-jackson (0.12.3)
+
+✅ PASO 2: Configurar application.properties
+- jwt.secret
+- jwt.expiration
+- cors.allowed.origins
+
+✅ PASO 3: Crear modelo User
+- Implementa UserDetails
+- Métodos: getUsername(), getAuthorities(), isEnabled()
+- Role enum con CUSTOMER y ADMIN
+
+✅ PASO 4: Crear UserRepository
+- findByEmail()
+- existsByEmail()
+
+✅ PASO 5: Crear UserService
+- Implementa UserDetailsService
+- loadUserByUsername()
+- registerUser() con BCrypt
+
+✅ PASO 6: Crear PasswordEncoderConfig
+- Bean de PasswordEncoder separado
+- Evita dependencia circular
+
+✅ PASO 7: Crear JwtUtils
+- generateToken()
+- validateToken()
+- extractUsername()
+
+✅ PASO 8: Crear JwtAuthenticationFilter
+- Intercepta requests
+- Valida token JWT
+- Establece autenticación
+
+✅ PASO 9: Crear SecurityConfig
+- Configura endpoints públicos/protegidos
+- Inyecta PasswordEncoder
+- Configura AuthenticationManager
+
+✅ PASO 10: Crear CorsConfig
+- Permite requests del frontend
+- Configura origins, methods, headers
+
+✅ PASO 11: Crear AuthController
+- Endpoint /register
+- Endpoint /login
+- Retorna token JWT
+
+✅ PASO 12: Agregar @PrePersist en entidades
+- Category.active = true
+- Material.active = true
+- Product.active = true
+
+✅ PASO 13: Agregar @JsonCreator en Category y Material
+- Permite deserializar solo con ID
+- Evita errores de Jackson
+
+✅ PASO 14: Probar en Postman
+- Registro exitoso
+- Login exitoso
+- Token guardado automáticamente
+- Endpoints protegidos funcionando
+
+================================================================================
