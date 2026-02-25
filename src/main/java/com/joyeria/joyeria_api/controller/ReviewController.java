@@ -6,8 +6,10 @@ import com.joyeria.joyeria_api.dto.ProductReviewStatsResponse;
 import com.joyeria.joyeria_api.dto.RatingDistributionResponse;
 import com.joyeria.joyeria_api.model.Product;
 import com.joyeria.joyeria_api.model.Review;
+import com.joyeria.joyeria_api.model.User;
 import com.joyeria.joyeria_api.service.ProductService;
 import com.joyeria.joyeria_api.service.ReviewService;
+import com.joyeria.joyeria_api.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,14 +37,18 @@ public class ReviewController {
 
     private final ReviewService reviewService;
     private final ProductService productService;
+    private final UserService userService;
 
     @PostMapping
     public ResponseEntity<Review> createReview(@Valid @RequestBody CreateReviewRequest request) {
-        // convertir DTO a entidad
+        // Obtener producto y usuario
         Product product = productService.getProductById(request.getProductId());
-        // User user = userService.getUserById(request.getUserId())
+        User user = userService.getUserById(request.getUserId());
+
+        // crear review
         Review review = new Review();
         review.setProduct(product);
+        review.setUser(user);
         review.setRating(request.getRating());
         review.setComment(request.getComment());
 
