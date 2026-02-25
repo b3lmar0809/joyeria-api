@@ -1,0 +1,960 @@
+================================================================================
+                    08 - MANEJO DE EXCEPCIONES
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+¿Qué es el manejo de excepciones?
+- Es capturar errores de forma centralizada
+- Convertir excepciones en respuestas HTTP apropiadas
+- Dar mensajes claros y consistentes al frontend
+
+================================================================================
+PROBLEMA SIN MANEJO DE EXCEPCIONES
+================================================================================
+
+Service sin excepciones personalizadas:
+
+@Service
+public class ProductService {
+    public Product getById(Long id) {
+        return productRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+    }
+}
+
+Frontend recibe (MAL):
+{
+  "timestamp": "2024-02-17T10:00:00",
+  "status": 500,                    // ❌ Debería ser 404
+  "error": "Internal Server Error",  // ❌ Poco claro
+  "message": "Producto no encontrado",
+  "path": "/api/products/999"
+}
+
+Problemas:
+❌ Status 500 (debería ser 404 NOT FOUND)
+❌ No es consistente entre endpoints
+❌ Mensajes poco descriptivos
+❌ Difícil de manejar en el frontend
+
+================================================================================
+SOLUCIÓN: @RestControllerAdvice
+================================================================================
+
+@RestControllerAdvice
+- Intercepta TODAS las excepciones de los Controllers
+- Permite manejar excepciones de forma centralizada
+- Convierte excepciones en respuestas HTTP apropiadas
+
+Flujo:
+Controller → Service → lanza Exception
+           ↓
+@RestControllerAdvice intercepta
+           ↓
+Retorna ErrorResponse con status correcto
+
+================================================================================
+CÓDIGOS HTTP PARA ERRORES
+================================================================================
+
+400 BAD REQUEST
+- Datos inválidos enviados por el cliente
+- Validaciones fallidas
+- Operaciones inválidas
+Ejemplos:
+  - Stock insuficiente
+  - Precio negativo
+  - Email inválido
+
+404 NOT FOUND
+- Recurso no encontrado
+Ejemplos:
+  - Product no encontrado con ID: 999
+  - Category no encontrada
+  - Order no encontrada
+
+409 CONFLICT
+- Conflicto con el estado actual
+- Recursos duplicados
+Ejemplos:
+  - SKU duplicado
+  - Email ya registrado
+  - Categoría con ese nombre ya existe
+
+500 INTERNAL SERVER ERROR
+- Error del servidor
+- Excepción no manejada
+- Problemas de BD
+Ejemplos:
+  - Error de conexión
+  - NullPointerException
+  - Error de BD
+
+================================================================================
+EXCEPCIONES PERSONALIZADAS
+================================================================================
+
+Creamos 4 excepciones personalizadas:
+
+1. ResourceNotFoundException (404)
+2. InsufficientStockException (400)
+3. DuplicateResourceException (409)
+4. InvalidOperationException (400)
+
+Ubicación: src/main/java/com/joyeria/exception/
+
+================================================================================
+1. ResourceNotFoundException.java
+================================================================================
+
+Cuándo usar:
+- Cuando NO se encuentra un recurso por ID
+- Cuando NO se encuentra por otro campo
+
+package com.joyeria.exception;
+
+public class ResourceNotFoundException extends RuntimeException {
+    
+    // Constructor básico
+    public ResourceNotFoundException(String message) {
+        super(message);
+    }
+    
+    // Constructor con nombre de recurso e ID
+    public ResourceNotFoundException(String resourceName, Long id) {
+        super(resourceName + " no encontrado con ID: " + id);
+    }
+    
+    // Constructor con campo personalizado
+    public ResourceNotFoundException(
+        String resourceName, 
+        String fieldName, 
+        Object fieldValue
+    ) {
+        super(String.format(
+            "%s no encontrado con %s: %s", 
+            resourceName, fieldName, fieldValue
+        ));
+    }
+}
+
+Uso en Service:
+
+// Por ID
+public Product getById(Long id) {
+    return productRepository.findById(id)
+        .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+}
+// Mensaje: "Product no encontrado con ID: 999"
+
+// Por campo
+public Order getByPaymentIntent(String paymentIntentId) {
+    return orderRepository.findByStripePaymentIntentId(paymentIntentId)
+        .orElseThrow(() -> new ResourceNotFoundException(
+            "Order", "paymentIntentId", paymentIntentId
+        ));
+}
+// Mensaje: "Order no encontrado con paymentIntentId: pi_123456"
+
+================================================================================
+2. InsufficientStockException.java
+================================================================================
+
+Cuándo usar:
+- Cuando NO hay suficiente stock para un producto
+- Cuando se intenta vender más de lo disponible
+
+package com.joyeria.exception;
+
+public class InsufficientStockException extends RuntimeException {
+    
+    private String productName;
+    private Integer available;
+    private Integer requested;
+    
+    public InsufficientStockException(
+        String productName, 
+        Integer available, 
+        Integer requested
+    ) {
+        super(String.format(
+            "Stock insuficiente para '%s'. Disponible: %d, Solicitado: %d",
+            productName, available, requested
+        ));
+        this.productName = productName;
+        this.available = available;
+        this.requested = requested;
+    }
+    
+    // Getters para campos adicionales
+    public String getProductName() { return productName; }
+    public Integer getAvailable() { return available; }
+    public Integer getRequested() { return requested; }
+}
+
+Uso en Service:
+
+public Product reduceStock(Long id, Integer quantity) {
+    Product product = getById(id);
+    
+    if (product.getStock() < quantity) {
+        throw new InsufficientStockException(
+            product.getName(),
+            product.getStock(),
+            quantity
+        );
+    }
+    
+    product.setStock(product.getStock() - quantity);
+    return productRepository.save(product);
+}
+
+Respuesta:
+{
+  "status": 400,
+  "error": "Insufficient Stock",
+  "message": "Stock insuficiente para 'Anillo de Oro'. Disponible: 5, Solicitado: 10"
+}
+
+================================================================================
+3. DuplicateResourceException.java
+================================================================================
+
+Cuándo usar:
+- Cuando se intenta crear un recurso que ya existe
+- Cuando hay duplicados (SKU, email, nombre)
+
+package com.joyeria.exception;
+
+public class DuplicateResourceException extends RuntimeException {
+    
+    // Constructor básico
+    public DuplicateResourceException(String message) {
+        super(message);
+    }
+    
+    // Constructor con campo específico
+    public DuplicateResourceException(
+        String resourceName, 
+        String fieldName, 
+        Object fieldValue
+    ) {
+        super(String.format(
+            "%s con %s '%s' ya existe",
+            resourceName, fieldName, fieldValue
+        ));
+    }
+}
+
+Uso en Service:
+
+public Product createProduct(Product product) {
+    if (productRepository.existsBySku(product.getSku())) {
+        throw new DuplicateResourceException("Product", "SKU", product.getSku());
+    }
+    return productRepository.save(product);
+}
+// Mensaje: "Product con SKU 'ANI-001' ya existe"
+
+public Category createCategory(Category category) {
+    if (categoryRepository.existsByName(category.getName())) {
+        throw new DuplicateResourceException("Category", "name", category.getName());
+    }
+    return categoryRepository.save(category);
+}
+// Mensaje: "Category con name 'Anillos' ya existe"
+
+Respuesta:
+{
+  "status": 409,
+  "error": "Conflict",
+  "message": "Product con SKU 'ANI-001' ya existe"
+}
+
+================================================================================
+4. InvalidOperationException.java
+================================================================================
+
+Cuándo usar:
+- Operaciones que no tienen sentido
+- Validaciones de lógica de negocio
+- Datos inválidos
+
+package com.joyeria.exception;
+
+public class InvalidOperationException extends RuntimeException {
+    
+    public InvalidOperationException(String message) {
+        super(message);
+    }
+}
+
+Uso en Service:
+
+public Product createProduct(Product product) {
+    if (product.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+        throw new InvalidOperationException("El precio debe ser mayor a 0");
+    }
+    
+    if (product.getStock() < 0) {
+        throw new InvalidOperationException("El stock no puede ser negativo");
+    }
+    
+    if (product.getDiscountPrice() != null) {
+        if (product.getDiscountPrice().compareTo(product.getPrice()) >= 0) {
+            throw new InvalidOperationException(
+                "El precio con descuento debe ser menor al precio original"
+            );
+        }
+    }
+    
+    return productRepository.save(product);
+}
+
+Respuesta:
+{
+  "status": 400,
+  "error": "Invalid Operation",
+  "message": "El precio debe ser mayor a 0"
+}
+
+================================================================================
+GLOBALEXCEPTIONHANDLER.java (@RestControllerAdvice)
+================================================================================
+
+Ubicación: src/main/java/com/joyeria/exception/GlobalExceptionHandler.java
+
+package com.joyeria.exception;
+
+import com.joyeria.dto.ErrorResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    
+    // Maneja ResourceNotFoundException → 404
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
+        ResourceNotFoundException ex,
+        WebRequest request
+    ) {
+        ErrorResponse error = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.NOT_FOUND.value(),
+            "Not Found",
+            ex.getMessage(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+    
+    // Maneja InsufficientStockException → 400
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientStockException(
+        InsufficientStockException ex,
+        WebRequest request
+    ) {
+        ErrorResponse error = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            "Insufficient Stock",
+            ex.getMessage(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+    
+    // Maneja DuplicateResourceException → 409
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateResourceException(
+        DuplicateResourceException ex,
+        WebRequest request
+    ) {
+        ErrorResponse error = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.CONFLICT.value(),
+            "Conflict",
+            ex.getMessage(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
+    
+    // Maneja InvalidOperationException → 400
+    @ExceptionHandler(InvalidOperationException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidOperationException(
+        InvalidOperationException ex,
+        WebRequest request
+    ) {
+        ErrorResponse error = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            "Invalid Operation",
+            ex.getMessage(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+    
+    // Maneja errores de validación (@Valid) → 400
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidationExceptions(
+        MethodArgumentNotValidException ex,
+        WebRequest request
+    ) {
+        Map<String, String> errors = new HashMap<>();
+        
+        ex.getBindingResult().getAllErrors().forEach((error) -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.BAD_REQUEST.value());
+        response.put("error", "Validation Failed");
+        response.put("errors", errors);
+        response.put("path", request.getDescription(false).replace("uri=", ""));
+        
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+    
+    // Maneja TODAS las demás excepciones → 500
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGlobalException(
+        Exception ex,
+        WebRequest request
+    ) {
+        ErrorResponse error = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.INTERNAL_SERVER_ERROR.value(),
+            "Internal Server Error",
+            ex.getMessage(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+}
+
+================================================================================
+CÓMO FUNCIONA @ExceptionHandler
+================================================================================
+
+1. Controller llama al Service
+2. Service lanza una excepción
+3. @RestControllerAdvice intercepta la excepción
+4. Busca el @ExceptionHandler apropiado
+5. Convierte la excepción en ErrorResponse
+6. Retorna con el status HTTP correcto
+
+Ejemplo:
+
+Controller:
+@GetMapping("/{id}")
+public ResponseEntity<Product> getById(@PathVariable Long id) {
+    Product product = productService.getById(id);
+    return ResponseEntity.ok(product);
+}
+
+Service:
+public Product getById(Long id) {
+    return productRepository.findById(id)
+        .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+    // ← Lanza excepción
+}
+
+GlobalExceptionHandler intercepta:
+@ExceptionHandler(ResourceNotFoundException.class)
+public ResponseEntity<ErrorResponse> handle(...) {
+    // Convierte a ErrorResponse con status 404
+}
+
+Frontend recibe:
+{
+  "timestamp": "2024-02-17T10:30:00",
+  "status": 404,
+  "error": "Not Found",
+  "message": "Product no encontrado con ID: 999",
+  "path": "/api/products/999"
+}
+
+================================================================================
+EJEMPLOS DE RESPUESTAS
+================================================================================
+
+404 NOT FOUND (Recurso no encontrado):
+GET /api/products/999
+
+{
+  "timestamp": "2024-02-17T10:30:00",
+  "status": 404,
+  "error": "Not Found",
+  "message": "Product no encontrado con ID: 999",
+  "path": "/api/products/999"
+}
+
+400 BAD REQUEST (Stock insuficiente):
+POST /api/orders
+Body: { "items": [{ "productId": 1, "quantity": 100 }] }
+
+{
+  "timestamp": "2024-02-17T10:30:00",
+  "status": 400,
+  "error": "Insufficient Stock",
+  "message": "Stock insuficiente para 'Anillo de Oro'. Disponible: 10, Solicitado: 100",
+  "path": "/api/orders"
+}
+
+409 CONFLICT (Duplicado):
+POST /api/categories
+Body: { "name": "Anillos" }
+
+{
+  "timestamp": "2024-02-17T10:30:00",
+  "status": 409,
+  "error": "Conflict",
+  "message": "Category con name 'Anillos' ya existe",
+  "path": "/api/categories"
+}
+
+400 BAD REQUEST (Validación):
+POST /api/orders
+Body: { 
+  "items": [],
+  "customerEmail": "no-es-email",
+  "customerName": "J"
+}
+
+{
+  "timestamp": "2024-02-17T10:30:00",
+  "status": 400,
+  "error": "Validation Failed",
+  "errors": {
+    "items": "La orden debe tener al menos un producto",
+    "customerEmail": "Email inválido",
+    "customerName": "El nombre debe tener entre 2 y 100 caracteres"
+  },
+  "path": "/api/orders"
+}
+
+500 INTERNAL SERVER ERROR (Error no manejado):
+GET /api/products
+
+{
+  "timestamp": "2024-02-17T10:30:00",
+  "status": 500,
+  "error": "Internal Server Error",
+  "message": "Connection refused",
+  "path": "/api/products"
+}
+
+================================================================================
+ACTUALIZAR SERVICES CON EXCEPCIONES
+================================================================================
+
+Antes (mal):
+throw new RuntimeException("Producto no encontrado");
+
+Después (bien):
+throw new ResourceNotFoundException("Product", id);
+
+================================================================================
+TODOS LOS SERVICES ACTUALIZADOS
+================================================================================
+
+1. CategoryService - COMPLETO ✅
+
+@Service
+@RequiredArgsConstructor
+public class CategoryService {
+    
+    private final CategoryRepository categoryRepository;
+    
+    public Category createCategory(Category category) {
+        if (categoryRepository.existsByName(category.getName())) {
+            throw new DuplicateResourceException("Category", "name", category.getName());
+        }
+        return categoryRepository.save(category);
+    }
+    
+    public Category getCategoryById(Long id) {
+        return categoryRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Category", id));
+    }
+    
+    public Category updateCategory(Long id, Category categoryDetails) {
+        Category category = getCategoryById(id);
+        
+        if (!category.getName().equals(categoryDetails.getName()) && 
+            categoryRepository.existsByName(categoryDetails.getName())) {
+            throw new DuplicateResourceException("Category", "name", categoryDetails.getName());
+        }
+        
+        // ... actualizar campos
+        return categoryRepository.save(category);
+    }
+}
+
+2. MaterialService - COMPLETO ✅
+
+@Service
+@RequiredArgsConstructor
+public class MaterialService {
+    
+    private final MaterialRepository materialRepository;
+    
+    public Material createMaterial(Material material) {
+        if (materialRepository.existsByName(material.getName())) {
+            throw new DuplicateResourceException("Material", "name", material.getName());
+        }
+        return materialRepository.save(material);
+    }
+    
+    public Material getMaterialById(Long id) {
+        return materialRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Material", id));
+    }
+    
+    public Material updateMaterial(Long id, Material materialDetails) {
+        Material material = getMaterialById(id);
+        
+        if (!material.getName().equals(materialDetails.getName()) && 
+            materialRepository.existsByName(materialDetails.getName())) {
+            throw new DuplicateResourceException("Material", "name", materialDetails.getName());
+        }
+        
+        // ... actualizar campos
+        return materialRepository.save(material);
+    }
+}
+
+3. ProductService - COMPLETO ✅
+
+@Service
+@RequiredArgsConstructor
+public class ProductService {
+    
+    private final ProductRepository productRepository;
+    
+    public Product createProduct(Product product) {
+        // Validar duplicado
+        if (product.getSku() != null && productRepository.existsBySku(product.getSku())) {
+            throw new DuplicateResourceException("Product", "SKU", product.getSku());
+        }
+        
+        // Validar precio
+        if (product.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidOperationException("El precio debe ser mayor a 0");
+        }
+        
+        // Validar stock
+        if (product.getStock() < 0) {
+            throw new InvalidOperationException("El stock no puede ser negativo");
+        }
+        
+        // Validar descuento
+        if (product.getDiscountPrice() != null) {
+            if (product.getDiscountPrice().compareTo(product.getPrice()) >= 0) {
+                throw new InvalidOperationException(
+                    "El precio con descuento debe ser menor al precio original"
+                );
+            }
+        }
+        
+        return productRepository.save(product);
+    }
+    
+    public Product getProductById(Long id) {
+        return productRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+    }
+    
+    public Product reduceStock(Long id, Integer quantity) {
+        Product product = getProductById(id);
+        
+        if (product.getStock() < quantity) {
+            throw new InsufficientStockException(
+                product.getName(),
+                product.getStock(),
+                quantity
+            );
+        }
+        
+        product.setStock(product.getStock() - quantity);
+        return productRepository.save(product);
+    }
+}
+
+4. OrderService - COMPLETO ✅
+
+@Service
+@RequiredArgsConstructor
+public class OrderService {
+    
+    private final OrderRepository orderRepository;
+    private final ProductService productService;
+    
+    public Order createOrder(CreateOrderRequest request) {
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new InvalidOperationException("La orden debe tener al menos un producto");
+        }
+        
+        // ... crear orden
+        
+        for (OrderItemRequest itemReq : request.getItems()) {
+            Product product = productService.getProductById(itemReq.getProductId());
+            
+            // Validar stock (lanza InsufficientStockException si no hay)
+            if (product.getStock() < itemReq.getQuantity()) {
+                throw new InsufficientStockException(
+                    product.getName(),
+                    product.getStock(),
+                    itemReq.getQuantity()
+                );
+            }
+            
+            // ... crear OrderItem
+        }
+        
+        return orderRepository.save(order);
+    }
+    
+    public Order getOrderById(Long id) {
+        return orderRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Order", id));
+    }
+    
+    public Order markOrderAsPaid(String paymentIntentId) {
+        Order order = orderRepository.findByStripePaymentIntentId(paymentIntentId)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Order", "paymentIntentId", paymentIntentId
+            ));
+        
+        // ... marcar como pagada
+    }
+}
+
+5. ReviewService - COMPLETO ✅
+
+@Service
+@RequiredArgsConstructor
+public class ReviewService {
+    
+    private final ReviewRepository reviewRepository;
+    private final ProductService productService;
+    
+    public Review createReview(Review review) {
+        // Validar que no haya reseñado ya
+        if (reviewRepository.existsByUserAndProduct(review.getUser(), review.getProduct())) {
+            throw new DuplicateResourceException("Ya has reseñado este producto");
+        }
+        
+        // Validar rating
+        if (review.getRating() < 1 || review.getRating() > 5) {
+            throw new InvalidOperationException("La calificación debe estar entre 1 y 5 estrellas");
+        }
+        
+        review.setApproved(false);
+        return reviewRepository.save(review);
+    }
+    
+    public Review getReviewById(Long id) {
+        return reviewRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Review", id));
+    }
+    
+    public Review approveReview(Long id) {
+        Review review = reviewRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Review", id));
+        
+        review.setApproved(true);
+        return reviewRepository.save(review);
+    }
+    
+    public void deleteReview(Long id) {
+        if (!reviewRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Review", id);
+        }
+        reviewRepository.deleteById(id);
+    }
+}
+
+6. PaymentService - COMPLETO ✅
+
+@Service
+@RequiredArgsConstructor
+public class PaymentService {
+    
+    private final OrderService orderService;
+    
+    public PaymentIntentResponse createPaymentIntent(Long orderId) {
+        try {
+            Order order = orderService.getOrderById(orderId);
+            
+            // Validar estado
+            if (order.getStatus() != OrderStatus.PENDING) {
+                throw new InvalidOperationException(
+                    "Solo se puede pagar órdenes en estado PENDING. Estado actual: " + order.getStatus()
+                );
+            }
+            
+            // ... crear PaymentIntent en Stripe
+            
+        } catch (StripeException e) {
+            throw new InvalidOperationException(
+                "Error al crear PaymentIntent en Stripe: " + e.getMessage()
+            );
+        }
+    }
+}
+
+================================================================================
+RESUMEN DE EXCEPCIONES POR SERVICE
+================================================================================
+
+CategoryService usa:
+- ResourceNotFoundException (404) - getCategoryById
+- DuplicateResourceException (409) - createCategory, updateCategory
+
+MaterialService usa:
+- ResourceNotFoundException (404) - getMaterialById
+- DuplicateResourceException (409) - createMaterial, updateMaterial
+
+ProductService usa:
+- ResourceNotFoundException (404) - getProductById, getProductBySku
+- DuplicateResourceException (409) - createProduct, updateProduct
+- InvalidOperationException (400) - validaciones de precio, stock, descuento
+- InsufficientStockException (400) - reduceStock
+
+OrderService usa:
+- ResourceNotFoundException (404) - getOrderById, markOrderAsPaid
+- InvalidOperationException (400) - orden sin items
+- InsufficientStockException (400) - validación de stock al crear orden
+
+ReviewService usa:
+- ResourceNotFoundException (404) - getReviewById, approveReview, deleteReview
+- DuplicateResourceException (409) - createReview (ya reseñó)
+- InvalidOperationException (400) - validación de rating
+
+PaymentService usa:
+- InvalidOperationException (400) - estado inválido, errores de Stripe
+- (usa ResourceNotFoundException del OrderService)
+
+================================================================================
+ESTRUCTURA DE ARCHIVOS
+================================================================================
+
+src/main/java/com/joyeria/exception/
+├── ResourceNotFoundException.java      ✅ 404 - No encontrado
+├── InsufficientStockException.java    ✅ 400 - Stock insuficiente
+├── DuplicateResourceException.java    ✅ 409 - Duplicado
+├── InvalidOperationException.java     ✅ 400 - Operación inválida
+└── GlobalExceptionHandler.java        ✅ @RestControllerAdvice
+
+src/main/java/com/joyeria/dto/
+└── ErrorResponse.java                  ✅ Respuesta de error
+
+================================================================================
+BUENAS PRÁCTICAS
+================================================================================
+
+✅ Crear excepciones personalizadas para casos específicos
+✅ Usar @RestControllerAdvice para manejo centralizado
+✅ Retornar status HTTP apropiados
+✅ Dar mensajes claros y descriptivos
+✅ Incluir información útil (disponible vs solicitado)
+✅ Manejar validaciones con MethodArgumentNotValidException
+✅ Tener un catch-all (Exception.class) para errores no manejados
+✅ Usar ErrorResponse para respuestas consistentes
+
+❌ NO usar RuntimeException genérico
+❌ NO retornar status 500 para errores del cliente
+❌ NO exponer información sensible en mensajes de error
+❌ NO olvidar el catch-all para excepciones no manejadas
+❌ NO manejar excepciones en el Controller (usa @RestControllerAdvice)
+
+================================================================================
+RELACIÓN CON DTOs
+================================================================================
+
+ErrorResponse es un DTO:
+- No corresponde a ninguna entidad
+- Se usa para respuestas de error
+- Tiene una estructura fija
+
+package com.joyeria.dto;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class ErrorResponse {
+    private LocalDateTime timestamp;
+    private Integer status;
+    private String error;
+    private String message;
+    private String path;
+}
+
+================================================================================
+TESTING EN POSTMAN
+================================================================================
+
+Probar 404:
+GET http://localhost:8080/api/products/999
+
+Probar 400 (validación):
+POST http://localhost:8080/api/orders
+Body: { "items": [], "customerEmail": "invalid" }
+
+Probar 409 (duplicado):
+POST http://localhost:8080/api/categories
+Body: { "name": "Anillos" }
+(ejecutar dos veces)
+
+Probar 400 (stock):
+POST http://localhost:8080/api/orders
+Body: { "items": [{ "productId": 1, "quantity": 9999 }] }
+
+================================================================================
+RESUMEN
+================================================================================
+
+Manejo de excepciones:
+- ✅ Centralizado con @RestControllerAdvice
+- ✅ Excepciones personalizadas para casos específicos
+- ✅ Status HTTP apropiados
+- ✅ Mensajes claros y consistentes
+
+Excepciones creadas:
+1. ResourceNotFoundException (404) - No encontrado
+2. InsufficientStockException (400) - Stock insuficiente
+3. DuplicateResourceException (409) - Duplicado
+4. InvalidOperationException (400) - Operación inválida
+
+GlobalExceptionHandler:
+- @RestControllerAdvice
+- @ExceptionHandler para cada excepción
+- Retorna ErrorResponse con status correcto
+- Catch-all para excepciones no manejadas
+
+Ventajas:
+- ✅ Código más limpio
+- ✅ Respuestas consistentes
+- ✅ Fácil de mantener
+- ✅ Mejor experiencia para el frontend
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================
