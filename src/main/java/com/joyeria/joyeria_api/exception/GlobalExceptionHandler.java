@@ -12,7 +12,13 @@ import org.springframework.web.context.request.WebRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-
+/**
+ * EmailSendException class
+ *
+ * @Version: 1.0.1 - 25 feb. 2026
+ * @Author: Matias Belmar - mati.belmar0625@gmail.com
+ * @Since: 1.0.0 17 feb. 2026
+ */
 
 // @RestControllerAdvice intercepta TODAS las excepciones de los Controllers
 
@@ -133,4 +139,29 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
+
+    @ExceptionHandler(EmailSendException.class)
+    public ResponseEntity<ErrorResponse> handleEmailSendException(EmailSendException ex, WebRequest request) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "Email Send Failed",
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    @ExceptionHandler(InvalidEmailException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidEmailException(InvalidEmailException ex, WebRequest request) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Invalid Email",
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+
 }
