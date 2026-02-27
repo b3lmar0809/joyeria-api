@@ -5,9 +5,11 @@ import com.joyeria.joyeria_api.dto.LoginRequest;
 import com.joyeria.joyeria_api.dto.RegisterRequest;
 import com.joyeria.joyeria_api.model.User;
 import com.joyeria.joyeria_api.security.JwtUtils;
+import com.joyeria.joyeria_api.service.EmailService;
 import com.joyeria.joyeria_api.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -31,17 +33,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "${cors.allowed.origins}")
 @RequiredArgsConstructor
+@Slf4j  // ← AGREGAR ESTO
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
     private final JwtUtils jwtUtils;
+    private final EmailService emailService;  // ← ASEGÚRATE DE TENER ESTO
 
-    /**
-     * POST /api/auth/register
-     * Registrar un nuevo usuario
-     * Body: { "email": "...", "password": "...", "firstName": "...", "lastName": "..." }
-     */
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         // Crear usuario
@@ -54,6 +53,17 @@ public class AuthController {
 
         // Registrar
         User registered = userService.registerUser(user);
+        log.info("Usuario registrado: {}", registered.getEmail());//eliminar
+
+        // ENVIAR EMAIL
+        try {
+            log.info("Intentando enviar email de bienvenida a: {}", registered.getEmail());
+            emailService.sendWelcomeEmail(registered);
+            log.info("Email de bienvenida enviado correctamente");
+        } catch (Exception e) {
+            log.error("Error enviando email de bienvenida: {}", e.getMessage(), e);
+            // No interrumpir el registro aunque falle el email
+        }
 
         // Generar token
         String token = jwtUtils.generateToken(registered);
@@ -71,11 +81,6 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /**
-     * POST /api/auth/login
-     * Iniciar sesión
-     * Body: { "email": "...", "password": "..." }
-     */
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         // Autenticar
