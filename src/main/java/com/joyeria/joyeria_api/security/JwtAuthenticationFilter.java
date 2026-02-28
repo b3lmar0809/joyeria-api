@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * JwtAuthenticationFilter class
  *
- * @Version: 1.0.0 - 21 feb. 2026
+ * @Version: 1.0.1 - 27 feb. 2026
  * @Author: Matias Belmar - mati.belmar0625@gmail.com
  * @Since: 1.0.0 21 feb. 2026
  */
@@ -35,6 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final List<String> PUBLIC_PATHS = Arrays.asList(
             "/api/auth/register",
             "/api/auth/login",
+            "/api/auth/forgot-password",
             "/api/products",
             "/api/categories",
             "/api/materials",
