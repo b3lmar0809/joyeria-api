@@ -11,7 +11,6 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailSender;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -22,7 +21,7 @@ import java.util.regex.Pattern;
 /**
  * EmailService class
  *
- * @Version: 1.0.0 - 25 feb. 2026
+ * @Version: 1.0.1 - 27 feb. 2026
  * @Author: Matias Belmar - mati.belmar0625@gmail.com
  * @Since: 1.0.0 25 feb. 2026
  */
@@ -485,6 +484,104 @@ public class EmailService {
                 order.getCustomerName(),
                 frontendUrl,
                 order.getItems().get(0).getProduct().getId(),
+                emailSupport,
+                emailSupport
+        );
+    }
+
+    //email de recuperacion
+    @Async
+    public void sendPasswordResetEmail(User user, String resetToken) {
+        try {
+            validateEmail(user.getEmail());
+            checkEmailConfiguration();
+
+            MimeMessage message = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(emailFrom);
+            helper.setTo(user.getEmail());
+            helper.setSubject("Recuperación de Contraseña - Joyería E-commerce 🔐");
+
+            String htmlContent = buildPasswordResetEmail(user, resetToken);
+            helper.setText(htmlContent, true);
+
+            javaMailSender.send(message);
+            log.info("Email de recuperación enviado a: {}", user.getEmail());
+
+        } catch (InvalidEmailException | EmailConfigurationException e) {
+            log.error("Error de validación enviando recuperación a {}: {}", user.getEmail(), e.getMessage());
+        } catch (MessagingException e) {
+            log.error("Error de mensajería enviando recuperación a {}: {}", user.getEmail(), e.getMessage());
+        } catch (Exception e) {
+            log.error("Error inesperado enviando recuperación a {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    // tmplate HTML para recuperación de contraseña
+    private String buildPasswordResetEmail(User user, String resetToken) {
+        String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #fc466b 0%%, #3f5efb 100%%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                .button { display: inline-block; background: #fc466b; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+                .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+                .code { background: #f0f0f0; padding: 10px; border-radius: 5px; font-family: monospace; margin: 15px 0; text-align: center; font-size: 18px; letter-spacing: 2px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Recuperación de Contraseña 🔐</h1>
+                </div>
+                <div class="content">
+                    <p>Hola <strong>%s</strong>,</p>
+                    
+                    <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
+                    
+                    <p>Haz click en el siguiente botón para crear una nueva contraseña:</p>
+                    
+                    <div style="text-align: center;">
+                        <a href="%s" class="button">Restablecer Contraseña</a>
+                    </div>
+                    
+                    <p>O copia y pega este enlace en tu navegador:</p>
+                    <div class="code">%s</div>
+                    
+                    <div class="warning">
+                        <strong>⚠️ Importante:</strong>
+                        <ul>
+                            <li>Este enlace es <strong>válido por 1 hora</strong></li>
+                            <li>Solo puede usarse <strong>una vez</strong></li>
+                            <li>Si no solicitaste este cambio, ignora este email</li>
+                        </ul>
+                    </div>
+                    
+                    <p>Si tienes problemas, contáctanos en <a href="mailto:%s">%s</a></p>
+                    
+                    <p><strong>El equipo de Joyería E-commerce</strong></p>
+                </div>
+                <div class="footer">
+                    <p>Este es un email automático, por favor no responder.</p>
+                    <p>Si no solicitaste este cambio, tu cuenta sigue segura.</p>
+                    <p>&copy; 2026 Joyería E-commerce. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """.formatted(
+                user.getFirstName(),
+                resetLink,
+                resetLink,
                 emailSupport,
                 emailSupport
         );

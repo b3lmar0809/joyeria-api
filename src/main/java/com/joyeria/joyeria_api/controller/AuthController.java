@@ -1,11 +1,10 @@
 package com.joyeria.joyeria_api.controller;
 
-import com.joyeria.joyeria_api.dto.AuthResponse;
-import com.joyeria.joyeria_api.dto.LoginRequest;
-import com.joyeria.joyeria_api.dto.RegisterRequest;
+import com.joyeria.joyeria_api.dto.*;
 import com.joyeria.joyeria_api.model.User;
 import com.joyeria.joyeria_api.security.JwtUtils;
 import com.joyeria.joyeria_api.service.EmailService;
+import com.joyeria.joyeria_api.service.PasswordResetService;
 import com.joyeria.joyeria_api.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,16 +14,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * AuthController class
  *
- * @Version: 1.0.0 - 22 feb. 2026
+ * @Version: 1.0.2 - 27 feb. 2026
  * @Author: Matias Belmar - mati.belmar0625@gmail.com
  * @Since: 1.0.0 2026/02/22
  */
@@ -33,13 +28,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "${cors.allowed.origins}")
 @RequiredArgsConstructor
-@Slf4j  // ← AGREGAR ESTO
+@Slf4j
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
     private final JwtUtils jwtUtils;
-    private final EmailService emailService;  // ← ASEGÚRATE DE TENER ESTO
+    private final EmailService emailService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -108,5 +104,40 @@ public class AuthController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<MessageResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("🔵 Solicitud de recuperación para: {}", request.getEmail());
+
+        passwordResetService.requestPasswordReset(request.getEmail());
+
+        return ResponseEntity.ok(new MessageResponse(
+                "Si el email existe, recibirás instrucciones para restablecer tu contraseña"
+        ));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<MessageResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        log.info("🔵 Restableciendo contraseña con token");
+
+        passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
+
+        return ResponseEntity.ok(new MessageResponse(
+                "Contraseña restablecida exitosamente. Ya puedes iniciar sesión con tu nueva contraseña."
+        ));
+    }
+
+
+    // GET /api/auth/validate-reset-token/{token}
+    //validar si un token de reset es válido
+
+    @GetMapping("/validate-reset-token/{token}")
+    public ResponseEntity<MessageResponse> validateResetToken(@PathVariable String token) {
+        log.info("🔵 Validando token de reset");
+
+        passwordResetService.validateResetToken(token);
+
+        return ResponseEntity.ok(new MessageResponse("Token válido"));
     }
 }
