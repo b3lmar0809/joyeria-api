@@ -1,0 +1,553 @@
+================================================================================
+                    10 - SISTEMA DE EMAILS (EXPLICADO PASO A PASO)
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    ¿QUÉ ES UN SISTEMA DE EMAILS?                           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+ANALOGÍA SIMPLE:
+Imagina una tienda física donde trabaja Juan. Cuando un cliente compra:
+1. Juan le da un recibo impreso
+2. Juan le dice: "Te avisamos cuando llegue tu pedido"
+3. Si el cliente tiene problemas, Juan le da su teléfono
+
+En una tienda ONLINE no hay "Juan", pero necesitas hacer lo mismo.
+La solución: EMAILS AUTOMÁTICOS
+
+Un Sistema de Emails = Un asistente automático que envía mensajes en el 
+momento correcto, sin que tú hagas nada manualmente.
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    ¿POR QUÉ LO NECESITAS?                                  ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+HISTORIA REAL:
+María compra un anillo de $15,000 en tu tienda online.
+
+SIN EMAILS:
+- Día 1: María compra → No recibe confirmación → Se preocupa
+- Día 2: María llama: "¿Se procesó mi compra?"
+- Día 3: Paquete enviado → María no sabe
+- Día 4: María llama: "¿Dónde está mi pedido?"
+- Día 5: Paquete llega → María molesta por falta de comunicación
+Resultado: Cliente insatisfecho + 2 llamadas al soporte
+
+CON EMAILS:
+- Día 1: Compra → Email de confirmación → María tranquila
+- Día 3: Paquete enviado → Email con tracking → María sigue el paquete
+- Día 5: Paquete llega → Email de entrega → María feliz
+Resultado: Cliente feliz + 0 llamadas al soporte + Posible reseña positiva
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║           LOS 5 EMAILS QUE VAMOS A IMPLEMENTAR                             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. EMAIL DE BIENVENIDA 🎉                                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+CUÁNDO: Cuando alguien se registra por primera vez
+OBJETIVO: Hacer sentir bienvenido al nuevo usuario
+
+PIÉNSALO ASÍ:
+Es como cuando entras a Starbucks y el barista te dice:
+"¡Hola! Bienvenido, soy Pedro, ¿en qué te puedo ayudar?"
+
+CONTENIDO:
+✓ Saludo personalizado: "Hola María" (no "Hola usuario123")
+✓ Mensaje amigable de bienvenida
+✓ Botón para explorar productos
+✓ Email de soporte
+
+DÓNDE SE ENVÍA EN EL CÓDIGO:
+AuthController.java → register() → después de crear el usuario
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. EMAIL DE CONFIRMACIÓN DE ORDEN 📦                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+CUÁNDO: Inmediatamente después de hacer una compra
+OBJETIVO: Confirmar que la compra se procesó correctamente
+
+PIÉNSALO ASÍ:
+Es el recibo digital. Como cuando compras en Amazon y te llega el email
+con el resumen de tu compra.
+
+CONTENIDO:
+✓ Número de orden (#12345)
+✓ Lista de productos con precios
+✓ Total pagado
+✓ Dirección de envío
+✓ Link para ver detalles
+
+DÓNDE SE ENVÍA EN EL CÓDIGO:
+OrderService.java → createOrder() → después de guardar la orden
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. EMAIL DE ENVÍO 🚚                                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+CUÁNDO: Cuando el paquete sale de la bodega
+OBJETIVO: Informar que el pedido está en camino
+
+PIÉNSALO ASÍ:
+Es como cuando FedEx te envía el mensaje: "Tu paquete está en camino"
+
+CONTENIDO:
+✓ Confirmación de envío
+✓ Número de tracking
+✓ Link para rastrear el paquete
+✓ Tiempo estimado de entrega
+
+DÓNDE SE ENVÍA EN EL CÓDIGO:
+OrderService.java → updateOrderStatus() → cuando status = SHIPPED
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. EMAIL DE ENTREGA ✅                                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+CUÁNDO: Cuando el paquete llega a su destino
+OBJETIVO: Confirmar entrega y pedir feedback
+
+PIÉNSALO ASÍ:
+Es como cuando el vendedor te llama después de la entrega:
+"¿Llegó todo bien? ¿Nos dejas una reseña?"
+
+CONTENIDO:
+✓ Confirmación de entrega
+✓ Agradecimiento por la compra
+✓ Botón para dejar reseña
+✓ Email de soporte por si hay problemas
+
+DÓNDE SE ENVÍA EN EL CÓDIGO:
+OrderService.java → updateOrderStatus() → cuando status = DELIVERED
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 5. EMAIL DE RECUPERACIÓN DE CONTRASEÑA 🔐                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+CUÁNDO: Cuando alguien olvida su contraseña
+OBJETIVO: Permitir recuperar acceso de forma segura
+
+PIÉNSALO ASÍ:
+Es como cuando olvidas la combinación de tu casillero y el encargado
+te da una llave temporal que solo funciona una vez.
+
+CONTENIDO:
+✓ Link especial con token (válido 1 hora)
+✓ Instrucciones claras
+✓ Advertencia de seguridad
+✓ Nota: "Si no fuiste tú, ignora este email"
+
+DÓNDE SE ENVÍA EN EL CÓDIGO:
+PasswordResetService.java → requestPasswordReset()
+
+NOTA: Este email tiene su propia lógica compleja (explicada en apuntes 11)
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              CONFIGURAR GMAIL PARA ENVIAR EMAILS                           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+¿POR QUÉ GMAIL?
+Gmail es gratis, confiable, y fácil de configurar. Usaremos tu cuenta personal
+de Gmail para enviar los emails de tu tienda.
+
+IMPORTANTE: NO usarás tu contraseña normal de Gmail (eso sería inseguro).
+Usarás una "App Password" que es una contraseña especial solo para tu app.
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PASO 1: ACTIVAR VERIFICACIÓN EN 2 PASOS                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ ES ESTO?
+Es una capa extra de seguridad. Gmail solo te deja crear App Passwords
+si tienes esto activado.
+
+CÓMO HACERLO:
+1. Ve a: https://myaccount.google.com/security
+2. Busca "Verificación en dos pasos"
+3. Click en activar
+4. Sigue los pasos (te pedirá tu teléfono)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PASO 2: CREAR APP PASSWORD                                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ ES ESTO?
+Una contraseña de 16 caracteres que Gmail genera específicamente para que
+tu aplicación pueda enviar emails. Es como una "llave" especial.
+
+CÓMO HACERLO:
+1. Ve a: https://myaccount.google.com/apppasswords
+2. En "Seleccionar app": elige "Correo"
+3. En "Seleccionar dispositivo": elige "Otro" y escribe "Joyeria API"
+4. Click "Generar"
+5. Gmail te mostrará una contraseña como: "abcd efgh ijkl mnop"
+6. COPIA ESTA CONTRASEÑA (la necesitarás después)
+
+⚠️ MUY IMPORTANTE:
+- Esta contraseña se muestra UNA SOLA VEZ
+- Si la pierdes, tendrás que generar una nueva
+- Quita los espacios al copiarla: "abcdefghijklmnop"
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PASO 3: CONFIGURAR EN TU APLICACIÓN                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Abre tu archivo application.properties y agrega:
+
+# Configuración de Gmail
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=tu-email@gmail.com
+spring.mail.password=abcdefghijklmnop  ← Tu App Password (SIN espacios)
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.smtp.starttls.required=true
+
+# Información del remitente
+app.email.from=Joyería E-commerce <tu-email@gmail.com>
+app.email.support=tu-email@gmail.com
+app.frontend.url=http://localhost:3000
+
+EXPLICACIÓN LÍNEA POR LÍNEA:
+
+spring.mail.host=smtp.gmail.com
+→ Servidor de Gmail para enviar emails
+
+spring.mail.port=587
+→ Puerto que usa Gmail (es el estándar)
+
+spring.mail.username=tu-email@gmail.com
+→ TU email de Gmail
+
+spring.mail.password=abcdefghijklmnop
+→ La App Password que copiaste (SIN espacios)
+
+spring.mail.properties.mail.smtp.auth=true
+→ Dice "sí necesito autenticarme con usuario y contraseña"
+
+spring.mail.properties.mail.smtp.starttls.enable=true
+→ Activa encriptación (por seguridad)
+
+app.email.from=Joyería E-commerce <tu-email@gmail.com>
+→ Nombre que aparecerá como remitente en los emails
+→ DEBE ser el mismo email que username
+
+app.email.support=tu-email@gmail.com
+→ Email de soporte (donde los clientes pueden escribir)
+
+app.frontend.url=http://localhost:3000
+→ URL de tu frontend (para los links en los emails)
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                  CÓDIGO: CÓMO FUNCIONA POR DENTRO                          ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ DEPENDENCIA NECESARIA (pom.xml)                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-mail</artifactId>
+</dependency>
+
+¿QUÉ HACE ESTO?
+Le da a tu aplicación la capacidad de enviar emails.
+Es como instalar un "módulo de envío de correo".
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ EXCEPCIONES (Errores Personalizados)                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Creamos 3 excepciones para manejar problemas con emails:
+
+1. EmailSendException
+   CUÁNDO: Falla el envío (problema de red, Gmail caído, etc.)
+   EJEMPLO: "No se pudo conectar al servidor de Gmail"
+
+2. InvalidEmailException
+   CUÁNDO: El email tiene formato inválido
+   EJEMPLO: "usuario@" (le falta el dominio)
+
+3. EmailConfigurationException
+   CUÁNDO: Olvidaste configurar el email en properties
+   EJEMPLO: spring.mail.username está vacío
+
+¿POR QUÉ CREAR EXCEPCIONES ESPECÍFICAS?
+- Mensajes de error más claros para el usuario
+- Facilita encontrar problemas cuando debuggeas
+- Puedes manejar cada tipo de error de forma diferente
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ EMAILSERVICE: EL CEREBRO DEL SISTEMA                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Este es el servicio principal que envía todos los emails.
+
+MÉTODOS PRINCIPALES:
+
+1. validateEmail(String email)
+   ¿QUÉ HACE? Verifica que el email tenga formato válido
+   EJEMPLO: "usuario@gmail.com" ✅  "usuario@" ❌
+   
+2. checkEmailConfiguration()
+   ¿QUÉ HACE? Verifica que hayas configurado Gmail correctamente
+   SI NO: Lanza EmailConfigurationException
+   
+3. sendWelcomeEmail(User user)
+   ¿QUÉ HACE? Envía el email de bienvenida
+   CUÁNDO SE LLAMA: Desde AuthController después del registro
+   
+4. sendOrderConfirmation(Order order)
+   ¿QUÉ HACE? Envía el email de confirmación de orden
+   CUÁNDO SE LLAMA: Desde OrderService después de crear la orden
+   
+5. sendShippingNotification(Order order)
+   ¿QUÉ HACE? Envía el email de envío
+   CUÁNDO SE LLAMA: Desde OrderService al cambiar estado a SHIPPED
+   
+6. sendDeliveryNotification(Order order)
+   ¿QUÉ HACE? Envía el email de entrega
+   CUÁNDO SE LLAMA: Desde OrderService al cambiar estado a DELIVERED
+
+DETALLE IMPORTANTE: @Async
+
+¿QUÉ ES @Async?
+Es una anotación que hace que el método se ejecute en segundo plano.
+
+SIN @Async:
+Usuario registra → Crear usuario (1 seg) → Enviar email (3 seg) → Responder
+Total: 4 segundos (usuario esperando)
+
+CON @Async:
+Usuario registra → Crear usuario (1 seg) → Responder inmediatamente
+                   └→ Enviar email (3 seg) en paralelo
+Total: 1 segundo (usuario ve respuesta rápido)
+
+¿POR QUÉ ES IMPORTANTE?
+- El usuario ve respuesta instantánea
+- Si el email falla, el registro NO falla
+- Mejor experiencia de usuario
+
+PARA HABILITAR @Async:
+Crear archivo AsyncConfig.java:
+
+@Configuration
+@EnableAsync
+public class AsyncConfig {
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ INTEGRACIÓN CON AUTHCONTROLLER                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+    
+    private final EmailService emailService;  ← Inyectar el servicio
+    
+    @PostMapping("/register")
+    public ResponseEntity<AuthResponse> register(...) {
+        
+        // 1. Crear usuario en BD
+        User registered = userService.registerUser(user);
+        
+        // 2. Enviar email (en segundo plano, no bloquea)
+        try {
+            emailService.sendWelcomeEmail(registered);
+        } catch (Exception e) {
+            // Log el error pero NO interrumpir el registro
+            // El usuario YA fue registrado exitosamente
+        }
+        
+        // 3. Retornar token JWT
+        return ResponseEntity.ok(authResponse);
+    }
+}
+
+PREGUNTA: ¿Por qué el try-catch?
+
+RESPUESTA:
+Imagina que Gmail está caído. ¿Qué prefieres?
+A) El usuario NO puede registrarse (porque el email falló)
+B) El usuario SÍ se registra (solo no recibe el email)
+
+Respuesta correcta: B
+El try-catch asegura que si el email falla, el registro sigue funcionando.
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                  TEMPLATES HTML (Emails Bonitos)                           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+¿POR QUÉ HTML Y NO TEXTO PLANO?
+
+TEXTO PLANO:
+"Hola Maria, gracias por registrarte. Visita nuestra tienda: 
+http://mitienda.com/products"
+
+HTML:
+┌─────────────────────────────────────────────┐
+│  [LOGO DE LA TIENDA]                        │
+│  ¡Bienvenida María! 💍                      │
+│  Gracias por unirte a Joyería E-commerce   │
+│  [BOTÓN: Explorar Productos]                │
+│  Si tienes dudas: soporte@joyeria.com      │
+└─────────────────────────────────────────────┘
+
+El HTML se ve MUCHO más profesional.
+
+ESTRUCTURA BÁSICA DE UN EMAIL HTML:
+
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        /* Estilos INLINE (no archivo CSS separado) */
+        .header { background: blue; color: white; }
+        .button { background: green; padding: 15px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>¡Bienvenido!</h1>
+    </div>
+    <div class="content">
+        <p>Hola {{nombre}}, ...</p>
+        <a href="{{link}}" class="button">Ver Productos</a>
+    </div>
+</body>
+</html>
+
+IMPORTANTE:
+- Los estilos van INLINE (dentro del mismo archivo)
+- Usa variables como {{nombre}} que luego reemplazas con datos reales
+- Prueba en Gmail, Outlook, etc. (se ven diferente en cada cliente)
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                  PROBLEMAS COMUNES Y SOLUCIONES                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PROBLEMA 1: "Email no configurado"                                      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+SÍNTOMA:
+Logs dicen: "⚠️ Email no configurado. Los emails NO se enviarán."
+
+CAUSAS:
+- Olvidaste poner tu email en spring.mail.username
+- Olvidaste poner la App Password en spring.mail.password
+
+SOLUCIÓN:
+Verifica application.properties:
+spring.mail.username=TU-EMAIL-AQUI@gmail.com  ← ¿Está completo?
+spring.mail.password=abcdefghijklmnop          ← ¿Está sin espacios?
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PROBLEMA 2: "Authentication failed"                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+SÍNTOMA:
+Error: "535-5.7.8 Username and Password not accepted"
+
+CAUSAS:
+- App Password incorrecta
+- Copiaste con espacios
+- No activaste verificación en 2 pasos
+
+SOLUCIÓN:
+1. Ve a https://myaccount.google.com/apppasswords
+2. BORRA la App Password vieja
+3. Genera una NUEVA
+4. Copia SIN ESPACIOS: "abcd efgh" → "abcdefgh"
+5. Pega en application.properties
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PROBLEMA 3: Los emails NO LLEGAN                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+SÍNTOMA:
+Logs dicen "✅ Email enviado" pero no llega a tu bandeja
+
+CAUSAS Y SOLUCIONES:
+
+1. Está en SPAM
+   → Revisa la carpeta de spam
+   → Gmail puede ponerlo ahí las primeras veces
+
+2. Gmail tarda
+   → Espera 5-10 minutos
+   → A veces hay retraso en la entrega
+
+3. Busca manualmente
+   → En Gmail, busca: from:tu-email@gmail.com
+   → Busca: subject:Bienvenido
+
+4. Email "from" incorrecto
+   → app.email.from DEBE ser el mismo que spring.mail.username
+   → Si no, Gmail lo rechaza
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                        MEJORES PRÁCTICAS                                   ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+✅ SIEMPRE usa @Async
+   → Los emails no deben bloquear operaciones principales
+
+✅ SIEMPRE maneja excepciones
+   → Si el email falla, el registro/compra debe seguir funcionando
+
+✅ SIEMPRE valida el formato del email
+   → Antes de intentar enviar
+
+✅ SIEMPRE usa HTML
+   → Emails bonitos = más profesional
+
+✅ NUNCA uses tu contraseña normal de Gmail
+   → Solo App Password
+
+✅ NUNCA expongas errores de email al usuario
+   → Solo loguea en el servidor
+
+✅ NUNCA envíes emails síncronos
+   → Siempre @Async
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                           RESUMEN FINAL                                    ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+LO QUE IMPLEMENTAMOS:
+✅ 5 tipos de emails diferentes
+✅ Configuración de Gmail con App Password
+✅ EmailService con envío asíncrono
+✅ 3 excepciones personalizadas
+✅ Templates HTML profesionales
+✅ Integración con controllers
+✅ Manejo robusto de errores
+
+BENEFICIOS:
+✅ Clientes informados en todo momento
+✅ Menos llamadas al soporte
+✅ Imagen más profesional
+✅ Mejor experiencia de usuario
+✅ Confianza y credibilidad
+
+ARCHIVOS CREADOS/MODIFICADOS:
+- exception/EmailSendException.java
+- exception/InvalidEmailException.java
+- exception/EmailConfigurationException.java
+- service/EmailService.java
+- config/AsyncConfig.java
+- controller/AuthController.java (+ emailService)
+- service/OrderService.java (+ emailService)
+- application.properties (configuración Gmail)
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================
