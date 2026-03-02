@@ -1,0 +1,795 @@
+================================================================================
+         11 - RECUPERACIÓN DE CONTRASEÑA (EXPLICADO PASO A PASO)
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              ¿QUÉ ES LA RECUPERACIÓN DE CONTRASEÑA?                        ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+SITUACIÓN COMÚN:
+María compró joyas por $15,000 en tu tienda hace 2 meses.
+Hoy quiere ver el estado de su pedido pero...
+❌ Olvidó su contraseña
+❌ No puede entrar a su cuenta
+❌ Está frustrada
+
+SIN RECUPERACIÓN:
+María: "Olvidé mi contraseña, ¿qué hago?"
+Opción 1: Llamar a soporte → Esperar 30 minutos → Explicar todo
+Opción 2: Crear cuenta nueva → Perder historial de compras
+Resultado: Cliente molesto, posible pérdida del cliente
+
+CON RECUPERACIÓN (AUTOMÁTICA):
+1. María: Click en "Olvidé mi contraseña"
+2. María: Ingresa su email
+3. Sistema: Envía email con link especial
+4. María: Click en el link → Crea nueva contraseña
+5. María: Entra a su cuenta felizmente
+Resultado: Cliente feliz, 0 llamadas al soporte, problema resuelto en 2 minutos
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    ANALOGÍA DEL CASILLERO                                  ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+Imagina que tienes un casillero con combinación numérica:
+
+ESCENARIO 1: Olvidaste la combinación
+→ Llamas al encargado
+→ Él te da una "LLAVE TEMPORAL" que:
+  ✓ Solo funciona UNA VEZ
+  ✓ Solo funciona por 1 HORA
+  ✓ Solo TÚ la tienes (te la dio personalmente)
+→ Usas la llave temporal
+→ Cambias la combinación a una nueva
+→ La llave temporal deja de funcionar
+→ Ahora solo tu nueva combinación funciona
+
+ESTO ES EXACTAMENTE lo que hace la recuperación de contraseña:
+- Llave temporal = TOKEN (código único)
+- 1 hora = EXPIRACIÓN
+- Una vez = NO REUTILIZABLE
+- Cambiar combinación = NUEVA CONTRASEÑA
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    FLUJO COMPLETO (11 PASOS)                               ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+PASO 1: Usuario hace click en "Olvidé mi contraseña"
+        └→ En el frontend (tu página web)
+
+PASO 2: Usuario ingresa su email en un formulario
+        └→ Ejemplo: maria@email.com
+
+PASO 3: Frontend envía request al backend
+        └→ POST /api/auth/forgot-password
+        └→ Body: { "email": "maria@email.com" }
+
+PASO 4: Backend busca el usuario en la base de datos
+        └→ ¿Existe maria@email.com? 
+        └→ Sí existe → Continuar
+        └→ No existe → Mensaje genérico (por seguridad)
+
+PASO 5: Backend genera un TOKEN único
+        └→ UUID.randomUUID() = "a1b2c3d4-e5f6-g7h8-..."
+        └→ Este token es IMPOSIBLE de adivinar
+
+PASO 6: Backend guarda el token en la BD
+        └→ Tabla: password_reset_tokens
+        └→ Campos: token, user_id, expiry_date, used
+        └→ expiry_date = ahora + 1 hora
+
+PASO 7: Backend envía EMAIL a maria@email.com
+        └→ Contiene: Link con el token
+        └→ Ejemplo: https://mitienda.com/reset?token=a1b2c3d4...
+
+PASO 8: María recibe el email y hace click en el link
+        └→ Esto la lleva al frontend
+
+PASO 9: Frontend muestra formulario para nueva contraseña
+        └→ María ingresa: "nuevapass123"
+
+PASO 10: Frontend envía request al backend
+         └→ POST /api/auth/reset-password
+         └→ Body: { "token": "a1b2c3d4...", "newPassword": "nuevapass123" }
+
+PASO 11: Backend valida y cambia la contraseña
+         ├→ ¿Token existe? ✓
+         ├→ ¿Token no expiró? ✓
+         ├→ ¿Token no fue usado? ✓
+         ├→ Encripta "nuevapass123" con BCrypt
+         ├→ Actualiza contraseña de María
+         ├→ Marca token como "usado"
+         └→ ¡Listo! María puede hacer login con su nueva contraseña
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    ENTIDAD: PASSWORDRESETTOKEN                             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+¿QUÉ ES UNA ENTIDAD?
+Una entidad es una tabla en la base de datos. Cada fila es un registro.
+
+ESTA ENTIDAD:
+Guarda los tokens temporales de recuperación de contraseña.
+
+@Entity
+@Table(name = "password_reset_tokens")
+public class PasswordResetToken {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;  ← ID único de este token
+    
+    @Column(nullable = false, unique = true)
+    private String token;  ← El token generado (UUID)
+    
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;  ← ¿Para qué usuario es este token?
+    
+    @Column(nullable = false)
+    private LocalDateTime expiryDate;  ← ¿Cuándo expira? (1 hora después)
+    
+    @Column(nullable = false)
+    private Boolean used = false;  ← ¿Ya se usó? (para evitar reutilización)
+    
+    @Column(nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();  ← ¿Cuándo se creó?
+    
+    // Método helper
+    public boolean isExpired() {
+        return LocalDateTime.now().isAfter(expiryDate);
+    }
+    
+    // Método helper
+    public boolean isValid() {
+        return !used && !isExpired();
+    }
+}
+
+EXPLICACIÓN CAMPO POR CAMPO:
+
+id: 1, 2, 3, 4...
+    ¿Para qué? Identificar cada token de forma única en la BD
+
+token: "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6"
+    ¿Para qué? Es la "llave temporal". Se envía en el email.
+    ¿Por qué UUID? Porque es imposible de adivinar (36 caracteres aleatorios)
+
+user: María (relación con tabla users)
+    ¿Para qué? Saber a qué usuario pertenece este token
+    Si el token es válido, sabemos que es de María
+
+expiryDate: 2026-02-27 15:30:00
+    ¿Para qué? Después de esta fecha, el token NO funciona
+    ¿Por qué 1 hora? Balance entre comodidad y seguridad
+
+used: false
+    ¿Para qué? Una vez usado, se marca true para evitar que se use de nuevo
+    Es como una llave que se rompe después de usarla una vez
+
+createdAt: 2026-02-27 14:30:00
+    ¿Para qué? Registro de cuándo se generó (útil para auditoría)
+
+MÉTODOS HELPER:
+
+isExpired(): 
+    Pregunta: "¿Ya pasó 1 hora?"
+    Respuesta: true (expiró) o false (aún válido)
+
+isValid():
+    Pregunta: "¿Este token se puede usar?"
+    Respuesta: Solo si NO se usó Y NO expiró
+
+EJEMPLO DE REGISTRO EN LA BD:
+
+id  | token             | user_id | expiry_date         | used  | created_at
+----|-------------------|---------|---------------------|-------|-------------------
+1   | a1b2c3d4-e5f6...  | 5       | 2026-02-27 15:30:00 | false | 2026-02-27 14:30:00
+2   | x9y8z7w6-v5u4...  | 12      | 2026-02-27 16:00:00 | true  | 2026-02-27 15:00:00
+                                                         ↑
+                                                    Ya se usó (no se puede reutilizar)
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    SERVICE: PASSWORDRESETSERVICE                           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+Este servicio tiene toda la LÓGICA de negocio de la recuperación.
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MÉTODO 1: requestPasswordReset()                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ HACE? Genera un token y envía el email
+
+public void requestPasswordReset(String email) {
+    
+    // 1. Buscar usuario en BD
+    User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+    // ¿Por qué? Necesitamos verificar que el email existe
+    
+    // 2. Borrar tokens anteriores de este usuario
+    tokenRepository.deleteByUser(user);
+    // ¿Por qué? Si María ya pidió un reset antes, ese token viejo ya no sirve
+    // Solo el MÁS RECIENTE es válido
+    
+    // 3. Generar nuevo token único
+    String token = UUID.randomUUID().toString();
+    // Resultado: "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6"
+    
+    // 4. Crear registro del token
+    PasswordResetToken resetToken = new PasswordResetToken();
+    resetToken.setToken(token);
+    resetToken.setUser(user);
+    resetToken.setExpiryDate(LocalDateTime.now().plusHours(1));  ← Expira en 1 hora
+    resetToken.setUsed(false);  ← Aún no se ha usado
+    
+    // 5. Guardar en BD
+    tokenRepository.save(resetToken);
+    
+    // 6. Enviar email con el token
+    emailService.sendPasswordResetEmail(user, token);
+    // Este email contiene el link: https://mitienda.com/reset?token=a1b2c3d4...
+}
+
+PREGUNTA: ¿Por qué borrar tokens anteriores?
+
+RESPUESTA:
+María pidió reset → Token 1 generado
+María cerró el email por error
+María pide reset de nuevo → Token 2 generado
+
+Sin borrar: Token 1 Y Token 2 funcionan (confusión)
+Borrando: Solo Token 2 funciona (el más reciente)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MÉTODO 2: validateResetToken()                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ HACE? Verifica si un token es válido
+
+public User validateResetToken(String token) {
+    
+    // 1. Buscar el token en BD
+    PasswordResetToken resetToken = tokenRepository.findByToken(token)
+            .orElseThrow(() -> new InvalidTokenException("Token no encontrado"));
+    // ¿Por qué? Si el token no existe en BD, es inválido
+    
+    // 2. Verificar si ya se usó
+    if (resetToken.getUsed()) {
+        throw new InvalidTokenException("Este token ya fue utilizado");
+    }
+    // ¿Por qué? No puedes usar la misma "llave temporal" dos veces
+    
+    // 3. Verificar si expiró
+    if (resetToken.isExpired()) {
+        throw new TokenExpiredException();
+    }
+    // ¿Por qué? Si pasó más de 1 hora, el token ya no sirve
+    
+    // 4. Si todo está bien, retornar el usuario
+    return resetToken.getUser();
+}
+
+CASOS DE USO:
+
+CASO 1: Token correcto, no usado, no expirado
+Resultado: ✅ Retorna el usuario (María)
+
+CASO 2: Token ya fue usado antes
+Resultado: ❌ InvalidTokenException: "Este token ya fue utilizado"
+
+CASO 3: Token expiró (pasó más de 1 hora)
+Resultado: ❌ TokenExpiredException: "El token ha expirado"
+
+CASO 4: Token no existe en BD (alguien lo inventó)
+Resultado: ❌ InvalidTokenException: "Token no encontrado"
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MÉTODO 3: resetPassword()                                               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ HACE? Cambia la contraseña del usuario
+
+public void resetPassword(String token, String newPassword) {
+    
+    // 1. Buscar el token
+    PasswordResetToken resetToken = tokenRepository.findByToken(token)
+            .orElseThrow(() -> new InvalidTokenException("Token no encontrado"));
+    
+    // 2. Validar (igual que validateResetToken)
+    if (resetToken.getUsed()) {
+        throw new InvalidTokenException("Este token ya fue utilizado");
+    }
+    if (resetToken.isExpired()) {
+        throw new TokenExpiredException();
+    }
+    
+    // 3. Obtener el usuario
+    User user = resetToken.getUser();
+    
+    // 4. CAMBIAR LA CONTRASEÑA (encriptada con BCrypt)
+    user.setPassword(passwordEncoder.encode(newPassword));
+    userRepository.save(user);
+    // ¿Por qué BCrypt? NUNCA guardamos contraseñas en texto plano
+    // BCrypt genera un hash irreversible
+    
+    // 5. Marcar token como usado (para que no se pueda usar de nuevo)
+    resetToken.setUsed(true);
+    tokenRepository.save(resetToken);
+    
+    // ¡Listo! María ya puede hacer login con su nueva contraseña
+}
+
+FLUJO VISUAL:
+
+María ingresa: "nuevapass123"
+                    ↓
+passwordEncoder.encode("nuevapass123")
+                    ↓
+"$2a$10$Xj8fK..." (hash BCrypt, 60 caracteres)
+                    ↓
+Se guarda en BD (columna password)
+                    ↓
+Token se marca como used=true
+                    ↓
+María puede hacer login con "nuevapass123"
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MÉTODO 4: cleanExpiredTokens() [AUTOMÁTICO]                            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ HACE? Limpia tokens viejos de la BD (mantenimiento)
+
+@Scheduled(cron = "0 0 * * * *")  ← Se ejecuta cada hora
+public void cleanExpiredTokens() {
+    LocalDateTime now = LocalDateTime.now();
+    tokenRepository.deleteByExpiryDateBefore(now);
+}
+
+¿QUÉ ES @Scheduled?
+Es como poner una alarma que ejecuta este método automáticamente.
+
+CRON EXPRESSION: "0 0 * * * *"
+Desglose: segundo minuto hora día mes díaDeLaSemana
+          0       0      *   *   *    *
+          ↑       ↑      ↑
+          0       0    Cada hora
+
+Significado: "Ejecuta cada hora en punto (13:00, 14:00, 15:00...)"
+
+¿POR QUÉ ES NECESARIO?
+Sin limpieza: BD se llena de tokens viejos e inútiles
+Con limpieza: BD limpia, mejor rendimiento
+
+EJEMPLO:
+Hora actual: 15:00
+
+Tokens en BD:
+- Token 1: expiryDate = 14:00 (expiró hace 1 hora) → SE BORRA
+- Token 2: expiryDate = 14:30 (expiró hace 30 min) → SE BORRA
+- Token 3: expiryDate = 15:30 (expira en 30 min) → SE MANTIENE
+- Token 4: expiryDate = 16:00 (expira en 1 hora) → SE MANTIENE
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    EXCEPCIONES PERSONALIZADAS                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+Creamos 2 excepciones específicas para tokens:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ EXCEPCIÓN 1: InvalidTokenException                                      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+CUÁNDO SE LANZA:
+- Token no existe en BD
+- Token ya fue usado
+- Token tiene formato inválido
+
+EJEMPLO DE USO:
+María intenta usar el mismo token 2 veces
+→ Primera vez: ✅ Funciona, contraseña cambiada
+→ Segunda vez: ❌ InvalidTokenException: "Este token ya fue utilizado"
+
+CÓDIGO:
+public class InvalidTokenException extends RuntimeException {
+    public InvalidTokenException(String message) {
+        super(message);
+    }
+}
+
+HTTP STATUS: 400 Bad Request
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ EXCEPCIÓN 2: TokenExpiredException                                      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+CUÁNDO SE LANZA:
+- Han pasado más de 1 hora desde que se generó el token
+
+EJEMPLO DE USO:
+María recibe el email a las 14:00
+María abre el email a las 15:30 (1.5 horas después)
+María hace click en el link
+→ ❌ TokenExpiredException: "El token ha expirado. Solicita uno nuevo."
+
+CÓDIGO:
+public class TokenExpiredException extends RuntimeException {
+    public TokenExpiredException() {
+        super("El token ha expirado. Por favor, solicita uno nuevo.");
+    }
+}
+
+HTTP STATUS: 400 Bad Request
+
+PREGUNTA: ¿Por qué excepciones separadas?
+
+RESPUESTA:
+Mensajes diferentes para el usuario:
+- "Token inválido" → Algo salió mal con el token
+- "Token expirado" → Tardaste mucho, pide uno nuevo
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    ENDPOINTS EN AUTHCONTROLLER                             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ENDPOINT 1: POST /api/auth/forgot-password                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ HACE? Usuario solicita recuperar su contraseña
+
+REQUEST:
+POST http://localhost:8080/api/auth/forgot-password
+Body: {
+  "email": "maria@email.com"
+}
+
+CÓDIGO:
+@PostMapping("/forgot-password")
+public ResponseEntity<MessageResponse> forgotPassword(
+        @Valid @RequestBody ForgotPasswordRequest request
+) {
+    passwordResetService.requestPasswordReset(request.getEmail());
+    
+    return ResponseEntity.ok(new MessageResponse(
+        "Si el email existe, recibirás instrucciones"
+    ));
+}
+
+PREGUNTA: ¿Por qué "Si el email existe" y no decir claramente?
+
+RESPUESTA (SEGURIDAD):
+Mensaje claro: "Email no encontrado"
+→ Hacker sabe que maria@email.com NO existe
+→ Hacker sabe que pedro@email.com SÍ existe
+→ Hacker puede hacer lista de usuarios reales
+
+Mensaje genérico: "Si el email existe..."
+→ Hacker NO sabe si el email existe o no
+→ Previene enumerar usuarios
+
+RESPONSE:
+Status: 200 OK
+Body: {
+  "message": "Si el email existe, recibirás instrucciones..."
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ENDPOINT 2: POST /api/auth/reset-password                               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ HACE? Usuario cambia su contraseña con el token
+
+REQUEST:
+POST http://localhost:8080/api/auth/reset-password
+Body: {
+  "token": "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6",
+  "newPassword": "nuevapass123"
+}
+
+CÓDIGO:
+@PostMapping("/reset-password")
+public ResponseEntity<MessageResponse> resetPassword(
+        @Valid @RequestBody ResetPasswordRequest request
+) {
+    passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
+    
+    return ResponseEntity.ok(new MessageResponse(
+        "Contraseña restablecida exitosamente"
+    ));
+}
+
+RESPONSE EXITOSA:
+Status: 200 OK
+Body: {
+  "message": "Contraseña restablecida exitosamente"
+}
+
+RESPONSE CON ERROR (token inválido):
+Status: 400 Bad Request
+Body: {
+  "status": 400,
+  "error": "Invalid Token",
+  "message": "Este token ya fue utilizado"
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ENDPOINT 3: GET /api/auth/validate-reset-token/{token}                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ HACE? Verifica si un token es válido (OPCIONAL)
+
+Este endpoint es útil para el frontend:
+Cuando el usuario abre el link del email, el frontend puede verificar
+si el token es válido ANTES de mostrar el formulario.
+
+REQUEST:
+GET http://localhost:8080/api/auth/validate-reset-token/a1b2c3d4...
+
+CÓDIGO:
+@GetMapping("/validate-reset-token/{token}")
+public ResponseEntity<MessageResponse> validateResetToken(@PathVariable String token) {
+    passwordResetService.validateResetToken(token);
+    return ResponseEntity.ok(new MessageResponse("Token válido"));
+}
+
+CASO 1: Token válido
+Status: 200 OK
+Body: { "message": "Token válido" }
+→ Frontend muestra formulario
+
+CASO 2: Token inválido
+Status: 400 Bad Request
+Body: { "message": "Token inválido o expirado" }
+→ Frontend muestra mensaje de error y botón "Solicitar nuevo token"
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    EMAIL DE RECUPERACIÓN                                   ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+El email que recibe el usuario contiene:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Recuperación de Contraseña 🔐                                           │
+│                                                                          │
+│  Hola María,                                                             │
+│                                                                          │
+│  Recibimos una solicitud para cambiar tu contraseña.                    │
+│                                                                          │
+│  [BOTÓN GRANDE: Restablecer Contraseña]                                 │
+│  → Link: https://mitienda.com/reset-password?token=a1b2c3d4...          │
+│                                                                          │
+│  O copia este enlace en tu navegador:                                   │
+│  https://mitienda.com/reset-password?token=a1b2c3d4...                  │
+│                                                                          │
+│  ⚠️ IMPORTANTE:                                                          │
+│  • Este enlace expira en 1 HORA                                         │
+│  • Solo puedes usarlo UNA VEZ                                           │
+│  • Si no fuiste tú, ignora este email                                   │
+│                                                                          │
+│  ¿Problemas? Contáctanos: soporte@joyeria.com                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+ELEMENTOS CLAVE:
+
+1. Saludo personalizado: "Hola María"
+   → Genera confianza
+
+2. Botón grande y visible
+   → Fácil de hacer click
+
+3. Link alternativo
+   → Por si el botón no funciona en su cliente de email
+
+4. Advertencias claras
+   → Usuario sabe que tiene 1 hora
+   → Usuario sabe que es de un solo uso
+
+5. Nota de seguridad
+   → "Si no fuiste tú, ignora"
+   → Tranquiliza al usuario si no fue él
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    SEGURIDAD IMPLEMENTADA                                  ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+✅ TOKENS ÚNICOS (UUID)
+   - 36 caracteres aleatorios
+   - Probabilidad de colisión: 1 en 5.316×10³⁶
+   - IMPOSIBLE de adivinar
+
+✅ EXPIRACIÓN (1 hora)
+   - Ventana de tiempo limitada
+   - Si alguien intercepta el email después, no funciona
+
+✅ USO ÚNICO
+   - Token se marca como "used" después del primer uso
+   - No se puede reutilizar
+
+✅ TOKENS ANTERIORES INVALIDADOS
+   - Si pides reset 2 veces, solo el último funciona
+   - Evita acumulación de tokens válidos
+
+✅ MENSAJE GENÉRICO
+   - No revela si un email existe en la BD
+   - Previene enumeración de usuarios
+
+✅ CONTRASEÑA ENCRIPTADA (BCrypt)
+   - NUNCA se guarda en texto plano
+   - Hash de una vía (irreversible)
+
+✅ LIMPIEZA AUTOMÁTICA
+   - Tokens expirados se borran cada hora
+   - BD limpia y eficiente
+
+⚠️ IMPORTANTE EN PRODUCCIÓN:
+- SIEMPRE usa HTTPS (los tokens viajan en URLs)
+- En desarrollo (localhost) no es crítico
+- En producción SIN https = INSEGURO
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    TESTING PASO A PASO                                     ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+PRUEBA COMPLETA EN POSTMAN:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PASO 1: Solicitar recuperación                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST http://localhost:8080/api/auth/forgot-password
+Body: {
+  "email": "tu-email@gmail.com"
+}
+
+✅ Response esperado:
+{
+  "message": "Si el email existe, recibirás instrucciones..."
+}
+
+✅ Verificar:
+- Revisa tu email (puede tardar 1-2 minutos)
+- Revisa SPAM si no llega
+- Logs del servidor: "✅ Token generado para: tu-email@gmail.com"
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PASO 2: Copiar token del email                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Abre el email que recibiste
+Busca el link: https://...?token=a1b2c3d4-e5f6...
+COPIA el token (la parte después de ?token=)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PASO 3: Validar token (OPCIONAL)                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET http://localhost:8080/api/auth/validate-reset-token/a1b2c3d4...
+                                                         ↑
+                                            Pega el token aquí
+
+✅ Response esperado:
+{
+  "message": "Token válido"
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PASO 4: Cambiar contraseña                                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST http://localhost:8080/api/auth/reset-password
+Body: {
+  "token": "a1b2c3d4-e5f6-g7h8...",  ← El token del email
+  "newPassword": "nuevapass123"
+}
+
+✅ Response esperado:
+{
+  "message": "Contraseña restablecida exitosamente"
+}
+
+✅ Verificar logs:
+"✅ Contraseña restablecida para: tu-email@gmail.com"
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PASO 5: Login con nueva contraseña                                      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST http://localhost:8080/api/auth/login
+Body: {
+  "email": "tu-email@gmail.com",
+  "password": "nuevapass123"  ← La nueva contraseña
+}
+
+✅ Response esperado:
+{
+  "token": "eyJhbGciOiJIUzI1...",
+  "email": "tu-email@gmail.com"
+}
+
+¡LOGIN EXITOSO! 🎉
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PRUEBA ADICIONAL: Intentar reutilizar token                             │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST http://localhost:8080/api/auth/reset-password
+Body: {
+  "token": "EL-MISMO-TOKEN-DE-ANTES",
+  "newPassword": "otra123"
+}
+
+❌ Response esperado:
+{
+  "status": 400,
+  "error": "Invalid Token",
+  "message": "Este token ya fue utilizado"
+}
+
+¡CORRECTO! El token no se puede reutilizar 🔒
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    PROBLEMAS COMUNES Y SOLUCIONES                          ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+PROBLEMA 1: Email no llega
+→ Revisa SPAM
+→ Espera 5-10 minutos
+→ Verifica configuración de email (apuntes 10)
+→ Revisa logs: "✅ Email de recuperación enviado"
+
+PROBLEMA 2: "Token no encontrado"
+→ Copiaste mal el token (espacios extra, caracteres faltantes)
+→ Token expiró (pasó más de 1 hora)
+→ Solicita un nuevo token
+
+PROBLEMA 3: @Scheduled no funciona
+→ Falta @EnableScheduling en clase principal
+→ Verificar: JoyeriaApiApplication.java debe tener @EnableScheduling
+
+PROBLEMA 4: Tokens no se borran de BD
+→ Verificar que @EnableScheduling está activo
+→ Verificar cron expression: "0 0 * * * *"
+→ Ejecutar manualmente en Postman (crear endpoint de prueba)
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                           RESUMEN FINAL                                    ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+LO QUE APRENDIMOS:
+
+✅ Qué es recuperación de contraseña (la "llave temporal")
+✅ Flujo completo de 11 pasos
+✅ Entidad PasswordResetToken (qué guarda y por qué)
+✅ Service con 4 métodos (generar, validar, resetear, limpiar)
+✅ 2 excepciones (InvalidToken, TokenExpired)
+✅ 3 endpoints (forgot, reset, validate)
+✅ Email HTML con link temporal
+✅ 7 capas de seguridad implementadas
+✅ Testing completo paso a paso
+✅ Troubleshooting de problemas comunes
+
+ARCHIVOS CREADOS/MODIFICADOS:
+- model/PasswordResetToken.java (entidad)
+- repository/PasswordResetTokenRepository.java
+- exception/InvalidTokenException.java
+- exception/TokenExpiredException.java
+- service/PasswordResetService.java
+- dto/ForgotPasswordRequest.java
+- dto/ResetPasswordRequest.java
+- dto/MessageResponse.java
+- controller/AuthController.java (3 endpoints nuevos)
+- service/EmailService.java (nuevo método)
+- JoyeriaApiApplication.java (@EnableScheduling)
+
+BENEFICIOS:
+✅ Usuarios pueden recuperar acceso por sí mismos
+✅ 0 llamadas al soporte por contraseñas olvidadas
+✅ Proceso seguro con múltiples validaciones
+✅ Experiencia de usuario fluida y rápida
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================
