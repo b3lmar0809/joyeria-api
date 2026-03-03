@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
  *
  * @Version: 1.0.2 - 27 feb. 2026
  * @Author: Matias Belmar - mati.belmar0625@gmail.com
- * @Since: 1.0.0 2026/02/22
+ * @Since: 1.0.0 - 22 feb. 2026
  */
 
 @RestController

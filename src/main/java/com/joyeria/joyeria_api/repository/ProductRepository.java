@@ -3,6 +3,8 @@ package com.joyeria.joyeria_api.repository;
 import com.joyeria.joyeria_api.model.Category;
 import com.joyeria.joyeria_api.model.Material;
 import com.joyeria.joyeria_api.model.Product;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +13,13 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
-
+/**
+ * ProductRepository class
+ *
+ * @Version: 1.0.1- 02 mar. 2026
+ * @Author: Matias Belmar - mati.belmar0625@gmail.com
+ * @Since: 1.0.0 - 14 feb. 2026
+ */
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
@@ -70,4 +78,24 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // contar productos por categoría
     // para mostrar "Anillos (25)" en el filtro
     Long countByCategoryAndActiveTrue(Category category);
+
+    @Query("SELECT p FROM Product p WHERE " +
+            "LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    Page<Product> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    //obtiene productos por categoria con paginacion
+    Page<Product> findByCategoryIdAndActiveTrue(Long categoryId, Pageable pageable);
+
+    //obtiene productos destacados con paginacion
+    Page<Product> findByFeaturedTrueAndActiveTrue(Pageable pageable);
+
+    //obtiene productos en oferta con paginacion
+    @Query("SELECT p FROM Product p WHERE p.discountPrice IS NOT NULL AND p.active = true")
+    Page<Product> findProductsOnSale(Pageable pageable);
+
+    //obtiene todos los productos activos con paginacion
+    Page<Product> findByActiveTrue(Pageable pageable);
+
+    //todos metodos sin paginación pueden seguir existiendo si se necesita, pero preferiblemente usar las paginados
 }
