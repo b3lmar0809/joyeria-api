@@ -9,12 +9,20 @@ import com.joyeria.joyeria_api.model.Material;
 import com.joyeria.joyeria_api.model.Product;
 import com.joyeria.joyeria_api.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
-
+/**
+ * ProductService class
+ *
+ * @Version: 1.0.1- 02 mar. 2026
+ * @Author: Matias Belmar - mati.belmar0625@gmail.com
+ * @Since: 1.0.0 - 15 feb. 2026
+ */
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -24,33 +32,6 @@ public class ProductService {
     private final CategoryService categoryService;
     private final MaterialService materialService;
 
-    public Product createProduct(Product product) {
-        // Validar SKU duplicado
-        if (product.getSku() != null && productRepository.existsBySku(product.getSku())) {
-            throw new DuplicateResourceException("Product", "SKU", product.getSku());
-        }
-
-        // Validar precio
-        if (product.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidOperationException("El precio debe ser mayor a 0");
-        }
-
-        // Validar stock
-        if (product.getStock() < 0) {
-            throw new InvalidOperationException("El stock no puede ser negativo");
-        }
-
-        // Validar descuento
-        if (product.getDiscountPrice() != null) {
-            if (product.getDiscountPrice().compareTo(product.getPrice()) >= 0) {
-                throw new InvalidOperationException(
-                        "El precio con descuento debe ser menor al precio original"
-                );
-            }
-        }
-
-        return productRepository.save(product);
-    }
 
     @Transactional(readOnly = true)
     public List<Product> getAllActiveProducts() {
@@ -72,11 +53,6 @@ public class ProductService {
         return productRepository.findProductsOnSale();
     }
 
-    @Transactional(readOnly = true)
-    public Product getProductById(Long id) {
-        return productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", id));
-    }
 
     @Transactional(readOnly = true)
     public Product getProductBySku(String sku) {
@@ -114,43 +90,6 @@ public class ProductService {
             BigDecimal maxPrice
     ) {
         return productRepository.findByFilters(categoryId, materialId, minPrice, maxPrice);
-    }
-
-    public Product updateProduct(Long id, Product productDetails) {
-        Product product = getProductById(id);
-
-        // validar SKU si cambió
-        if (!product.getSku().equals(productDetails.getSku()) &&
-                productRepository.existsBySku(productDetails.getSku())) {
-            throw new DuplicateResourceException("Product", "SKU", productDetails.getSku());
-        }
-
-        // validar precio
-        if (productDetails.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidOperationException("El precio debe ser mayor a 0");
-        }
-
-        // validar stock
-        if (productDetails.getStock() < 0) {
-            throw new InvalidOperationException("El stock no puede ser negativo");
-        }
-
-        product.setName(productDetails.getName());
-        product.setDescription(productDetails.getDescription());
-        product.setPrice(productDetails.getPrice());
-        product.setStock(productDetails.getStock());
-        product.setSku(productDetails.getSku());
-        product.setWeight(productDetails.getWeight());
-        product.setDimensions(productDetails.getDimensions());
-        product.setCategory(productDetails.getCategory());
-        product.setMaterial(productDetails.getMaterial());
-        product.setGemstones(productDetails.getGemstones());
-        product.setImages(productDetails.getImages());
-        product.setFeatured(productDetails.getFeatured());
-        product.setDiscountPrice(productDetails.getDiscountPrice());
-        product.setActive(productDetails.getActive());
-
-        return productRepository.save(product);
     }
 
     public Product partialUpdateProduct(Long id, Product productDetails) {
@@ -239,30 +178,82 @@ public class ProductService {
         return productRepository.save(product);
     }
 
-    public Product reduceStock(Long id, Integer quantity) {
-        Product product = getProductById(id);
 
-        if (product.getStock() < quantity) {
-            throw new InsufficientStockException(
-                    product.getName(),
-                    product.getStock(),
-                    quantity
-            );
-        }
 
-        product.setStock(product.getStock() - quantity);
+    //obtiene todos los productos con paginacion
+    public Page<Product> getAllProducts(Pageable pageable) {
+        return productRepository.findByActiveTrue(pageable);
+    }
+
+    //buscar productos con paginacion
+    public Page<Product> searchProducts(String keyword, Pageable pageable) {
+        return productRepository.searchByKeyword(keyword, pageable);
+    }
+
+    public Page<Product> getProductsByCategory(Long categoryId, Pageable pageable) {
+        return productRepository.findByCategoryIdAndActiveTrue(categoryId, pageable);
+    }
+
+    //obtiene productos destacados con paginacion
+    public Page<Product> getFeaturedProducts(Pageable pageable) {
+        return productRepository.findByFeaturedTrueAndActiveTrue(pageable);
+    }
+
+    public Page<Product> getProductsOnSale(Pageable pageable) {
+        return productRepository.findProductsOnSale(pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Product getProductById(Long id) {
+        return productRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
+    }
+
+    public Product createProduct(Product product) {
         return productRepository.save(product);
     }
 
-    public Product increaseStock(Long id, Integer quantity) {
+    public Product updateProduct(Long id, Product productDetails) {
         Product product = getProductById(id);
-        product.setStock(product.getStock() + quantity);
+
+        product.setName(productDetails.getName());
+        product.setDescription(productDetails.getDescription());
+        product.setPrice(productDetails.getPrice());
+        product.setStock(productDetails.getStock());
+        product.setSku(productDetails.getSku());
+        product.setCategory(productDetails.getCategory());
+        product.setMaterial(productDetails.getMaterial());
+        product.setWeight(productDetails.getWeight());
+        product.setDimensions(productDetails.getDimensions());
+        product.setGemstones(productDetails.getGemstones());
+        product.setImages(productDetails.getImages());
+        product.setFeatured(productDetails.getFeatured());
+        product.setDiscountPrice(productDetails.getDiscountPrice());
+
         return productRepository.save(product);
     }
 
     public void deleteProduct(Long id) {
         Product product = getProductById(id);
         product.setActive(false);
+        productRepository.save(product);
+    }
+
+    //reducir stock
+    public void reduceStock(Long productId, Integer quantity) {
+        Product product = getProductById(productId);
+
+        if (product.getStock() < quantity) {
+            throw new InsufficientStockException(product.getName(), product.getStock(), quantity);
+        }
+
+        product.setStock(product.getStock() - quantity);
+        productRepository.save(product);
+    }
+
+    //aumentar stock
+    public void increaseStock(Long productId, Integer quantity) {
+        Product product = getProductById(productId);
+        product.setStock(product.getStock() + quantity);
         productRepository.save(product);
     }
 }
