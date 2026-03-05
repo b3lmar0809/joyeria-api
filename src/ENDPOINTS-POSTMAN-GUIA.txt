@@ -1,0 +1,658 @@
+================================================================================
+                    ENDPOINTS DE LA API - GUÍA DE POSTMAN
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+BASE URL: http://localhost:8080
+
+================================================================================
+1. AUTENTICACIÓN
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ REGISTER - Registrar nuevo usuario                                      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST {{base_url}}/api/auth/register
+
+Body (JSON):
+{
+  "email": "admin@joyeria.com",
+  "password": "admin123",
+  "firstName": "Admin",
+  "lastName": "Principal",
+  "phone": "555-0001"
+}
+
+Otros ejemplos de usuarios:
+{
+  "email": "maria@email.com",
+  "password": "maria123",
+  "firstName": "María",
+  "lastName": "González",
+  "phone": "555-0002"
+}
+
+{
+  "email": "juan@email.com",
+  "password": "juan123",
+  "firstName": "Juan",
+  "lastName": "Pérez",
+  "phone": "555-0003"
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ LOGIN - Iniciar sesión                                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST {{base_url}}/api/auth/login
+
+Body (JSON):
+{
+  "email": "admin@joyeria.com",
+  "password": "admin123"
+}
+
+Response (guardar el token):
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "type": "Bearer",
+  "id": 1,
+  "email": "admin@joyeria.com",
+  "firstName": "Admin",
+  "lastName": "Principal"
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ FORGOT PASSWORD - Solicitar recuperación de contraseña                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST {{base_url}}/api/auth/forgot-password
+
+Body (JSON):
+{
+  "email": "admin@joyeria.com"
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ RESET PASSWORD - Restablecer contraseña con token                       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST {{base_url}}/api/auth/reset-password
+
+Body (JSON):
+{
+  "token": "TOKEN-DEL-EMAIL",
+  "newPassword": "nuevapass123"
+}
+
+================================================================================
+2. CATEGORÍAS
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ GET ALL - Obtener todas las categorías                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/categories
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ GET BY ID - Obtener categoría por ID                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/categories/1
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CREATE - Crear nueva categoría                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST {{base_url}}/api/categories
+Headers: Authorization: Bearer {{token}}
+
+Body (JSON):
+{
+  "name": "Anillos",
+  "description": "Anillos de compromiso, matrimonio y casuales"
+}
+
+Más ejemplos:
+{
+  "name": "Collares",
+  "description": "Collares de oro, plata y piedras preciosas"
+}
+
+{
+  "name": "Pulseras",
+  "description": "Pulseras elegantes para toda ocasión"
+}
+
+{
+  "name": "Aretes",
+  "description": "Aretes de diseño único"
+}
+
+{
+  "name": "Relojes",
+  "description": "Relojes de lujo y casual"
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ UPDATE - Actualizar categoría                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+PUT {{base_url}}/api/categories/1
+Headers: Authorization: Bearer {{token}}
+
+Body (JSON):
+{
+  "name": "Anillos Premium",
+  "description": "Anillos de alta joyería"
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ DELETE - Eliminar categoría                                             │
+└─────────────────────────────────────────────────────────────────────────┘
+
+DELETE {{base_url}}/api/categories/1
+Headers: Authorization: Bearer {{token}}
+
+================================================================================
+3. MATERIALES
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ GET ALL - Obtener todos los materiales                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/materials
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CREATE - Crear nuevo material                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST {{base_url}}/api/materials
+Headers: Authorization: Bearer {{token}}
+
+Body (JSON):
+{
+  "name": "Oro 18K",
+  "description": "Oro de 18 quilates, pureza 75%"
+}
+
+Más ejemplos:
+{
+  "name": "Plata 925",
+  "description": "Plata esterlina de alta calidad"
+}
+
+{
+  "name": "Platino",
+  "description": "Platino puro, metal precioso"
+}
+
+{
+  "name": "Oro Blanco",
+  "description": "Oro blanco 14K con baño de rodio"
+}
+
+{
+  "name": "Acero Inoxidable",
+  "description": "Acero quirúrgico de alta resistencia"
+}
+
+================================================================================
+4. PRODUCTOS
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ GET ALL - Productos paginados                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/products?page=0&size=10
+GET {{base_url}}/api/products?page=0&size=20
+GET {{base_url}}/api/products?page=1&size=10
+
+Con ordenamiento:
+GET {{base_url}}/api/products?page=0&size=10&sort=price&direction=ASC
+GET {{base_url}}/api/products?page=0&size=10&sort=price&direction=DESC
+GET {{base_url}}/api/products?page=0&size=10&sort=name&direction=ASC
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ SEARCH - Buscar productos                                               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/products/search?keyword=anillo&page=0&size=10
+GET {{base_url}}/api/products/search?keyword=collar&page=0&size=5
+GET {{base_url}}/api/products/search?keyword=oro&page=0&size=20
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ BY CATEGORY - Productos por categoría                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/products/category/1?page=0&size=10
+GET {{base_url}}/api/products/category/2?page=0&size=10
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ FEATURED - Productos destacados                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/products/featured?page=0&size=10
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ON SALE - Productos en oferta                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/products/sale?page=0&size=10
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ GET BY ID - Obtener producto por ID                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/products/1
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CREATE - Crear nuevo producto                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST {{base_url}}/api/products
+Headers: Authorization: Bearer {{token}}
+
+Body (JSON):
+{
+  "name": "Anillo Solitario Diamante",
+  "description": "Anillo de compromiso con diamante central de 1 quilate",
+  "price": 25000.00,
+  "stock": 15,
+  "sku": "ANI-001",
+  "category": {"id": 1},
+  "material": {"id": 1},
+  "weight": 5.5,
+  "dimensions": "1.5cm x 1.5cm",
+  "gemstones": "Diamante 1ct",
+  "images": ["anillo1.jpg"],
+  "featured": true
+}
+
+Más ejemplos:
+
+{
+  "name": "Collar Cadena Oro 18K",
+  "description": "Cadena de oro 18K de 45cm",
+  "price": 12000.00,
+  "stock": 20,
+  "sku": "COL-001",
+  "category": {"id": 2},
+  "material": {"id": 1},
+  "weight": 15.0,
+  "dimensions": "45cm",
+  "images": ["collar1.jpg"],
+  "featured": true
+}
+
+{
+  "name": "Pulsera Eslabones Oro",
+  "description": "Pulsera de eslabones en oro 18K",
+  "price": 9500.00,
+  "stock": 22,
+  "sku": "PUL-001",
+  "category": {"id": 3},
+  "material": {"id": 1},
+  "weight": 18.0,
+  "dimensions": "18cm",
+  "images": ["pulsera1.jpg"],
+  "featured": true
+}
+
+Producto con descuento:
+{
+  "name": "Anillo Alianza Oro",
+  "description": "Alianza de matrimonio en oro 18K",
+  "price": 8500.00,
+  "discountPrice": 7500.00,
+  "stock": 30,
+  "sku": "ANI-002",
+  "category": {"id": 1},
+  "material": {"id": 1},
+  "weight": 4.0,
+  "dimensions": "0.5cm x 2cm",
+  "images": ["anillo2.jpg"],
+  "featured": true
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ UPDATE - Actualizar producto                                            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+PUT {{base_url}}/api/products/1
+Headers: Authorization: Bearer {{token}}
+
+Body (JSON):
+{
+  "name": "Anillo Solitario Diamante Premium",
+  "description": "Anillo de compromiso con diamante central certificado de 1 quilate",
+  "price": 28000.00,
+  "stock": 10,
+  "sku": "ANI-001",
+  "category": {"id": 1},
+  "material": {"id": 1},
+  "weight": 5.5,
+  "dimensions": "1.5cm x 1.5cm",
+  "gemstones": "Diamante 1ct certificado GIA",
+  "images": ["anillo1.jpg", "anillo1-2.jpg"],
+  "featured": true
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ DELETE - Eliminar producto (soft delete)                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+DELETE {{base_url}}/api/products/1
+Headers: Authorization: Bearer {{token}}
+
+================================================================================
+5. ÓRDENES
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CREATE - Crear nueva orden                                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST {{base_url}}/api/orders
+Headers: Authorization: Bearer {{token}}
+
+Body (JSON):
+{
+  "customerEmail": "maria@email.com",
+  "customerName": "María González",
+  "customerPhone": "555-0002",
+  "shippingAddress": "Av. Principal 123",
+  "shippingCity": "Santiago",
+  "shippingState": "RM",
+  "shippingPostalCode": "8320000",
+  "shippingCountry": "Chile",
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1
+    }
+  ]
+}
+
+Orden con múltiples items:
+{
+  "customerEmail": "juan@email.com",
+  "customerName": "Juan Pérez",
+  "customerPhone": "555-0003",
+  "shippingAddress": "Calle 45 #567",
+  "shippingCity": "Valparaíso",
+  "shippingState": "V",
+  "shippingPostalCode": "2340000",
+  "shippingCountry": "Chile",
+  "notes": "Llamar antes de entregar",
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1
+    },
+    {
+      "productId": 2,
+      "quantity": 2
+    }
+  ]
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ GET ALL - Todas las órdenes paginadas                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/orders/all?page=0&size=10
+Headers: Authorization: Bearer {{token}}
+
+Con ordenamiento:
+GET {{base_url}}/api/orders/all?page=0&size=10&sort=createdAt&direction=DESC
+GET {{base_url}}/api/orders/all?page=0&size=10&sort=totalAmount&direction=DESC
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ BY STATUS - Órdenes por estado                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/orders/status/PENDING?page=0&size=10
+GET {{base_url}}/api/orders/status/PAID?page=0&size=10
+GET {{base_url}}/api/orders/status/SHIPPED?page=0&size=10
+GET {{base_url}}/api/orders/status/DELIVERED?page=0&size=10
+Headers: Authorization: Bearer {{token}}
+
+Estados disponibles:
+- PENDING (pendiente de pago)
+- PAID (pagada)
+- PROCESSING (procesando)
+- SHIPPED (enviada)
+- DELIVERED (entregada)
+- CANCELLED (cancelada)
+- REFUNDED (reembolsada)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ BY CUSTOMER - Órdenes por cliente                                       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/orders/customer/maria@email.com?page=0&size=5
+GET {{base_url}}/api/orders/customer/juan@email.com?page=0&size=10
+Headers: Authorization: Bearer {{token}}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ GET BY ID - Obtener orden por ID                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/orders/1
+Headers: Authorization: Bearer {{token}}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ UPDATE STATUS - Cambiar estado de orden                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+PATCH {{base_url}}/api/orders/1/status
+Headers: Authorization: Bearer {{token}}
+
+Body (JSON):
+{
+  "status": "PAID"
+}
+
+Cambiar a enviada:
+{
+  "status": "SHIPPED"
+}
+
+Cambiar a entregada:
+{
+  "status": "DELIVERED"
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ UPDATE TRACKING - Actualizar tracking number                            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+PATCH {{base_url}}/api/orders/1/tracking
+Headers: Authorization: Bearer {{token}}
+
+Body (JSON):
+{
+  "trackingNumber": "TRK-12345678"
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CANCEL - Cancelar orden                                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+PATCH {{base_url}}/api/orders/1/cancel
+Headers: Authorization: Bearer {{token}}
+
+================================================================================
+6. RESEÑAS
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ BY PRODUCT - Reseñas de un producto                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/reviews/product/1?page=0&size=10
+GET {{base_url}}/api/reviews/product/2?page=0&size=5
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PENDING - Reseñas pendientes de aprobación                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+GET {{base_url}}/api/reviews/pending?page=0&size=20
+Headers: Authorization: Bearer {{token}}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CREATE - Crear nueva reseña                                             │
+└─────────────────────────────────────────────────────────────────────────┘
+
+POST {{base_url}}/api/reviews
+Headers: Authorization: Bearer {{token}}
+
+Body (JSON):
+{
+  "user": {"id": 2},
+  "product": {"id": 1},
+  "rating": 5,
+  "comment": "¡Hermoso anillo! Mi prometida lloró de emoción. Excelente calidad."
+}
+
+Más ejemplos:
+
+{
+  "user": {"id": 3},
+  "product": {"id": 1},
+  "rating": 5,
+  "comment": "Superó mis expectativas. El diamante brilla increíble."
+}
+
+{
+  "user": {"id": 2},
+  "product": {"id": 2},
+  "rating": 4,
+  "comment": "Muy linda alianza, solo que tardó un poco en llegar."
+}
+
+{
+  "user": {"id": 4},
+  "product": {"id": 11},
+  "rating": 5,
+  "comment": "El collar es precioso, muy buena calidad de oro."
+}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ APPROVE - Aprobar reseña                                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+PATCH {{base_url}}/api/reviews/1/approve
+Headers: Authorization: Bearer {{token}}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ REJECT - Rechazar reseña                                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+PATCH {{base_url}}/api/reviews/1/reject
+Headers: Authorization: Bearer {{token}}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ DELETE - Eliminar reseña                                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+DELETE {{base_url}}/api/reviews/1
+Headers: Authorization: Bearer {{token}}
+
+================================================================================
+7. PARÁMETROS DE PAGINACIÓN (TODOS LOS ENDPOINTS PAGINADOS)
+================================================================================
+
+page        = Número de página (empieza en 0)
+size        = Cantidad de elementos por página
+sort        = Campo por el cual ordenar
+direction   = ASC (ascendente) o DESC (descendente)
+
+EJEMPLOS:
+
+Primera página, 10 elementos:
+?page=0&size=10
+
+Segunda página, 20 elementos:
+?page=1&size=20
+
+Ordenar por precio ascendente:
+?page=0&size=10&sort=price&direction=ASC
+
+Ordenar por fecha descendente:
+?page=0&size=10&sort=createdAt&direction=DESC
+
+Combinar búsqueda + paginación:
+/api/products/search?keyword=anillo&page=0&size=5&sort=price&direction=ASC
+
+================================================================================
+8. RESPUESTA DE ENDPOINTS PAGINADOS
+================================================================================
+
+Todos los endpoints paginados retornan:
+
+{
+  "content": [
+    { ... },  // Los datos
+    { ... }
+  ],
+  "pageable": {
+    "pageNumber": 0,      // Página actual
+    "pageSize": 10        // Tamaño de página
+  },
+  "totalElements": 50,    // Total de registros
+  "totalPages": 5,        // Total de páginas
+  "last": false,          // ¿Es la última página?
+  "first": true,          // ¿Es la primera página?
+  "numberOfElements": 10  // Elementos en esta página
+}
+
+================================================================================
+9. CÓDIGOS DE RESPUESTA HTTP
+================================================================================
+
+200 OK              - Solicitud exitosa
+201 CREATED         - Recurso creado exitosamente
+204 NO CONTENT      - Eliminación exitosa
+400 BAD REQUEST     - Error en los datos enviados
+401 UNAUTHORIZED    - No autenticado (falta token)
+403 FORBIDDEN       - No autorizado (permisos insuficientes)
+404 NOT FOUND       - Recurso no encontrado
+409 CONFLICT        - Conflicto (ej: email duplicado)
+500 SERVER ERROR    - Error interno del servidor
+
+================================================================================
+10. TIPS PARA POSTMAN
+================================================================================
+
+1. Crear variable de entorno:
+   - Nombre: base_url
+   - Valor: http://localhost:8080
+
+2. Guardar token automáticamente después del login:
+   En la pestaña "Tests" del endpoint Login, agregar:
+   
+   if (pm.response.code === 200) {
+       var jsonData = pm.response.json();
+       pm.environment.set("token", jsonData.token);
+   }
+
+3. Usar el token en headers:
+   Authorization: Bearer {{token}}
+
+4. Crear colecciones separadas:
+   - Autenticación
+   - Productos
+   - Órdenes
+   - Reseñas
+
+5. Guardar requests útiles como favoritos
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================
