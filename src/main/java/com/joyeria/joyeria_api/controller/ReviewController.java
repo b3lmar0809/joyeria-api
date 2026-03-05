@@ -11,6 +11,10 @@ import com.joyeria.joyeria_api.service.ProductService;
 import com.joyeria.joyeria_api.service.ReviewService;
 import com.joyeria.joyeria_api.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -28,7 +32,13 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.stream.Collectors;
-
+/**
+ * ReviewController class
+ *
+ * @Version: 1.0.1- 04 mar. 2026
+ * @Author: Matias Belmar - mati.belmar0625@gmail.com
+ * @Since: 1.0.0 - 20 feb. 2026
+ */
 @RestController
 @RequestMapping("/api/reviews")
 @CrossOrigin(origins = "${cors.allowed.origins}")
@@ -38,6 +48,31 @@ public class ReviewController {
     private final ReviewService reviewService;
     private final ProductService productService;
     private final UserService userService;
+
+    //obtener reseñas aprobadas de un producto con paginacipn
+    @GetMapping("/product/{productId}")
+    public ResponseEntity<Page<Review>> getApprovedReviewsByProduct(
+            @PathVariable Long productId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Review> reviews = reviewService.getApprovedReviewsByProductPaginated(productId, pageable);
+
+        return ResponseEntity.ok(reviews);
+    }
+
+    //obtener reseñas pendientes de aprobacion con paginacion (ADMIN)
+    @GetMapping("/pending")
+    public ResponseEntity<Page<Review>> getPendingReviews(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "createdAt"));
+        Page<Review> reviews = reviewService.getPendingReviewsPaginated(pageable);
+
+        return ResponseEntity.ok(reviews);
+    }
 
     @PostMapping
     public ResponseEntity<Review> createReview(@Valid @RequestBody CreateReviewRequest request) {
