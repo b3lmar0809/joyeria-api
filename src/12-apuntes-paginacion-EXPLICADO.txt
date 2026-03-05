@@ -1,0 +1,666 @@
+================================================================================
+                    12 - PAGINACIÓN (EXPLICADO PASO A PASO)
+                         E-COMMERCE DE JOYERÍA
+================================================================================
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    ¿QUÉ ES LA PAGINACIÓN?                                  ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+ANALOGÍA SIMPLE:
+Imagina un libro de 1,000 páginas. ¿Qué prefieres?
+
+Opción A: El libro completo de golpe (1,000 páginas a la vez)
+→ Pesado, difícil de manejar, toma mucho tiempo leer todo
+
+Opción B: Leer 20 páginas a la vez (página 1-20, luego 21-40, etc.)
+→ Ligero, fácil de manejar, puedes leer lo que necesitas
+
+La paginación es EXACTAMENTE eso, pero con datos.
+
+SIN PAGINACIÓN:
+GET /api/products → Retorna 1,000 productos (5 MB de datos)
+→ Navegador se congela
+→ Tarda 10 segundos
+→ Usuario frustra y cierra la página
+
+CON PAGINACIÓN:
+GET /api/products?page=0&size=20 → Retorna 20 productos (100 KB)
+→ Carga instantánea (< 1 segundo)
+→ Usuario feliz
+→ Puede navegar: página 1, 2, 3...
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              POR QUÉ ES TAN IMPORTANTE                                     ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+HISTORIA REAL:
+Tu tienda tiene 500 productos. María entra a ver el catálogo.
+
+SIN PAGINACIÓN:
+1. María entra a /productos
+2. Frontend pide: GET /api/products
+3. Backend busca en BD: SELECT * FROM products (500 filas)
+4. Backend envía 500 productos → 3 MB de JSON
+5. Frontend recibe 3 MB
+6. Navegador intenta mostrar 500 productos
+7. Navegador se congela por 5 segundos
+8. María: "Esta página está rota" → Cierra
+9. Pierdes la venta
+
+CON PAGINACIÓN:
+1. María entra a /productos
+2. Frontend pide: GET /api/products?page=0&size=20
+3. Backend busca en BD: SELECT * FROM products LIMIT 20 OFFSET 0
+4. Backend envía 20 productos → 100 KB de JSON
+5. Frontend recibe 100 KB
+6. Navegador muestra 20 productos (instantáneo)
+7. María ve los productos, navega por páginas
+8. María encuentra lo que busca
+9. María compra → Venta exitosa
+
+BENEFICIOS:
+✅ Velocidad: Carga < 1 segundo vs 10 segundos
+✅ Rendimiento: Menos carga en servidor y BD
+✅ Experiencia: Usuario puede navegar fácilmente
+✅ Ancho de banda: Ahorra datos (importante en móviles)
+✅ Escalabilidad: Funciona con 100 o 100,000 productos
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              CONCEPTOS CLAVE                                               ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. PAGE (PÁGINA)                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ ES?
+El número de la página que quieres ver.
+
+IMPORTANTE: Las páginas empiezan en 0 (no en 1)
+
+page=0  → Primera página (productos 1-20)
+page=1  → Segunda página (productos 21-40)
+page=2  → Tercera página (productos 41-60)
+
+EJEMPLO EN LA VIDA REAL:
+Es como los capítulos de Netflix:
+- Temporada 1, Episodio 1 = page=0
+- Temporada 1, Episodio 2 = page=1
+- Temporada 1, Episodio 3 = page=2
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. SIZE (TAMAÑO)                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ ES?
+Cuántos elementos quieres por página.
+
+size=10  → 10 productos por página
+size=20  → 20 productos por página
+size=50  → 50 productos por página
+
+EJEMPLO EN LA VIDA REAL:
+Es como Google:
+- Google muestra 10 resultados por página (size=10)
+- Amazon muestra 20-40 productos por página
+- Instagram muestra ~10 posts a la vez
+
+RECOMENDACIONES:
+- Listados normales: size=10 o size=20
+- Catálogos: size=20 o size=30
+- Tablas de admin: size=50 o size=100
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. SORT (ORDENAR)                                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ ES?
+Por qué campo quieres ordenar los datos.
+
+sort=price       → Ordenar por precio
+sort=name        → Ordenar por nombre
+sort=createdAt   → Ordenar por fecha de creación
+
+EJEMPLO EN LA VIDA REAL:
+Es como en MercadoLibre:
+- "Menor precio" = sort=price con direction=ASC
+- "Mayor precio" = sort=price con direction=DESC
+- "Más recientes" = sort=createdAt con direction=DESC
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. DIRECTION (DIRECCIÓN)                                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+¿QUÉ ES?
+En qué dirección ordenar.
+
+direction=ASC   → Ascendente (1, 2, 3... / A, B, C... / Más barato a más caro)
+direction=DESC  → Descendente (3, 2, 1... / Z, Y, X... / Más caro a más barato)
+
+EJEMPLO:
+Productos ordenados por precio:
+
+ASC (menor a mayor):
+1. Aretes Plata - $1,500
+2. Collar Cruz - $1,800
+3. Pulsera Charms - $3,500
+
+DESC (mayor a menor):
+1. Reloj Oro Suizo - $45,000
+2. Pulsera Tenis - $35,000
+3. Anillo Trilogy - $32,000
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              CÓMO FUNCIONA POR DENTRO                                      ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ FLUJO COMPLETO DE UNA REQUEST PAGINADA                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+PASO 1: Usuario hace request
+GET /api/products?page=1&size=20&sort=price&direction=ASC
+
+PASO 2: Controller recibe los parámetros
+@GetMapping
+public ResponseEntity<Page<Product>> getAllProducts(
+    @RequestParam(defaultValue = "0") int page,      ← page = 1
+    @RequestParam(defaultValue = "10") int size,     ← size = 20
+    @RequestParam(defaultValue = "id") String sort,  ← sort = "price"
+    @RequestParam(defaultValue = "ASC") String direction ← direction = "ASC"
+)
+
+PASO 3: Controller crea objeto Pageable
+Sort.Direction sortDirection = direction.equalsIgnoreCase("DESC") 
+    ? Sort.Direction.DESC 
+    : Sort.Direction.ASC;
+
+Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
+→ pageable = PageRequest.of(1, 20, Sort.by(ASC, "price"))
+
+PASO 4: Service llama al Repository
+Page<Product> products = productRepository.findByActiveTrue(pageable);
+
+PASO 5: Repository ejecuta SQL
+SELECT * FROM products 
+WHERE active = true 
+ORDER BY price ASC 
+LIMIT 20 OFFSET 20;
+       ↑         ↑
+     size    page * size
+
+EXPLICACIÓN DEL SQL:
+- ORDER BY price ASC → Ordena por precio ascendente
+- LIMIT 20 → Trae máximo 20 filas
+- OFFSET 20 → Salta las primeras 20 filas (porque page=1)
+
+RESULTADO:
+- page=0, size=20, offset=0  → Productos 1-20
+- page=1, size=20, offset=20 → Productos 21-40
+- page=2, size=20, offset=40 → Productos 41-60
+
+PASO 6: Spring crea objeto Page con metadata
+{
+  "content": [...],         ← Los 20 productos
+  "totalElements": 150,     ← Total de productos en BD
+  "totalPages": 8,          ← 150 / 20 = 7.5 → 8 páginas
+  "pageNumber": 1,          ← Página actual
+  "pageSize": 20,           ← Tamaño de página
+  "first": false,           ← No es la primera página
+  "last": false             ← No es la última página
+}
+
+PASO 7: Controller retorna al cliente
+return ResponseEntity.ok(products);
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              CÓDIGO IMPLEMENTADO                                           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. CONTROLLER (ProductController.java)                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+@GetMapping
+public ResponseEntity<Page<Product>> getAllProducts(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size,
+        @RequestParam(defaultValue = "id") String sort,
+        @RequestParam(defaultValue = "ASC") String direction
+) {
+    // Convertir string "ASC"/"DESC" a enum
+    Sort.Direction sortDirection = direction.equalsIgnoreCase("DESC")
+            ? Sort.Direction.DESC
+            : Sort.Direction.ASC;
+
+    // Crear objeto Pageable (configuración de paginación)
+    Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
+    
+    // Llamar al service
+    Page<Product> products = productService.getAllProducts(pageable);
+
+    // Retornar
+    return ResponseEntity.ok(products);
+}
+
+EXPLICACIÓN LÍNEA POR LÍNEA:
+
+@RequestParam(defaultValue = "0") int page
+→ Si el usuario NO envía ?page=X, usa 0 por defecto
+→ Ejemplo: GET /api/products → page = 0
+
+Sort.Direction sortDirection = ...
+→ Convierte el string "ASC" o "DESC" a un enum
+→ Si el usuario envía "desc", "DESC", "DeSc" → todos se convierten a DESC
+
+PageRequest.of(page, size, Sort.by(sortDirection, sort))
+→ Crea el objeto de configuración de paginación
+→ page: qué página
+→ size: cuántos elementos
+→ Sort.by(): cómo ordenar
+
+productService.getAllProducts(pageable)
+→ Pasa la configuración al service
+→ El service la pasa al repository
+→ El repository ejecuta el SQL
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. SERVICE (ProductService.java)                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+public Page<Product> getAllProducts(Pageable pageable) {
+    return productRepository.findByActiveTrue(pageable);
+}
+
+EXPLICACIÓN:
+El service simplemente pasa el Pageable al repository.
+Es simple porque toda la lógica de paginación la maneja Spring Data JPA.
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. REPOSITORY (ProductRepository.java)                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Page<Product> findByActiveTrue(Pageable pageable);
+
+EXPLICACIÓN:
+Spring Data JPA ve que el método retorna Page<> y recibe Pageable.
+Automáticamente:
+1. Genera el SQL con LIMIT y OFFSET
+2. Cuenta el total de registros (SELECT COUNT(*))
+3. Calcula el total de páginas
+4. Crea el objeto Page con toda la metadata
+
+NO NECESITAS ESCRIBIR SQL MANUALMENTE.
+
+SQL GENERADO AUTOMÁTICAMENTE:
+-- Query para obtener los datos
+SELECT * FROM products 
+WHERE active = true 
+ORDER BY price ASC 
+LIMIT 20 OFFSET 0;
+
+-- Query para contar total
+SELECT COUNT(*) FROM products WHERE active = true;
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              RESPUESTA DE UN ENDPOINT PAGINADO                             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+GET /api/products?page=0&size=10
+
+RESPONSE:
+{
+  "content": [
+    {
+      "id": 1,
+      "name": "Anillo Solitario Diamante",
+      "price": 25000.00,
+      ...
+    },
+    {
+      "id": 2,
+      "name": "Anillo Alianza Oro",
+      "price": 8500.00,
+      ...
+    }
+    // ... 8 productos más (total 10)
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalElements": 30,
+  "totalPages": 3,
+  "last": false,
+  "first": true,
+  "size": 10,
+  "number": 0,
+  "numberOfElements": 10,
+  "empty": false
+}
+
+EXPLICACIÓN DE CADA CAMPO:
+
+content: []
+→ Los datos reales (productos, órdenes, reseñas, etc.)
+→ En este caso, 10 productos
+
+pageable.pageNumber: 0
+→ Página actual (la primera, porque empieza en 0)
+
+pageable.pageSize: 10
+→ Tamaño de página configurado
+
+totalElements: 30
+→ Total de productos en la BD (que cumplen el filtro)
+
+totalPages: 3
+→ Total de páginas disponibles (30 productos / 10 por página = 3 páginas)
+
+last: false
+→ ¿Es la última página? No (aún hay página 1 y 2)
+
+first: true
+→ ¿Es la primera página? Sí
+
+numberOfElements: 10
+→ Cuántos elementos hay en ESTA página (en este caso, 10)
+
+empty: false
+→ ¿La página está vacía? No
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              EJEMPLOS DE USO EN EL FRONTEND                                ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+REACT EJEMPLO:
+
+function ProductList() {
+  const [products, setProducts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  
+  useEffect(() => {
+    fetch(`/api/products?page=${currentPage}&size=20`)
+      .then(res => res.json())
+      .then(data => {
+        setProducts(data.content);          // Los productos
+        setTotalPages(data.totalPages);     // Total de páginas
+      });
+  }, [currentPage]);
+  
+  return (
+    <div>
+      {/* Mostrar productos */}
+      {products.map(product => (
+        <ProductCard key={product.id} product={product} />
+      ))}
+      
+      {/* Botones de paginación */}
+      <button 
+        onClick={() => setCurrentPage(currentPage - 1)}
+        disabled={currentPage === 0}
+      >
+        Anterior
+      </button>
+      
+      <span>Página {currentPage + 1} de {totalPages}</span>
+      
+      <button 
+        onClick={() => setCurrentPage(currentPage + 1)}
+        disabled={currentPage === totalPages - 1}
+      >
+        Siguiente
+      </button>
+    </div>
+  );
+}
+
+INTERFAZ VISUAL:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  PRODUCTOS                                      [🔍 Buscar]              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  [Producto 1]  [Producto 2]  [Producto 3]  [Producto 4]                 │
+│  $1,000        $1,500        $2,000        $800                         │
+│                                                                          │
+│  [Producto 5]  [Producto 6]  [Producto 7]  [Producto 8]                 │
+│  $1,200        $3,000        $900          $1,800                       │
+│                                                                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│            [◀ Anterior] [1] [2] [3] [4] [5] [Siguiente ▶]               │
+│            Mostrando 1-20 de 150 productos                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              CASOS DE USO IMPLEMENTADOS                                    ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CASO 1: Catálogo de Productos                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+ENDPOINT:
+GET /api/products?page=0&size=20&sort=price&direction=ASC
+
+USO:
+Usuario entra a /productos → Ve los 20 productos más baratos
+
+BENEFICIO:
+- Carga rápida
+- Usuario ve productos inmediatamente
+- Puede filtrar por precio
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CASO 2: Búsqueda de Productos                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+ENDPOINT:
+GET /api/products/search?keyword=anillo&page=0&size=10
+
+USO:
+Usuario busca "anillo" → Ve los primeros 10 resultados
+
+BENEFICIO:
+- Si hay 100 anillos, no carga todos
+- Usuario puede navegar por páginas de resultados
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CASO 3: Panel de Administrador - Órdenes                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+ENDPOINT:
+GET /api/orders/all?page=0&size=50&sort=createdAt&direction=DESC
+
+USO:
+Admin ve las 50 órdenes más recientes
+
+BENEFICIO:
+- No carga 10,000 órdenes del último año
+- Admin puede filtrar por estado
+- Puede navegar por fechas
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CASO 4: Historial de Compras del Cliente                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+ENDPOINT:
+GET /api/orders/customer/maria@email.com?page=0&size=5
+
+USO:
+María ve sus últimas 5 compras
+
+BENEFICIO:
+- No carga todas las compras de su vida
+- Respuesta instantánea
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CASO 5: Reseñas de un Producto                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+ENDPOINT:
+GET /api/reviews/product/1?page=0&size=10
+
+USO:
+Usuario ve las primeras 10 reseñas de un producto
+
+BENEFICIO:
+- Si el producto tiene 500 reseñas, no carga todas
+- Usuario puede leer las más recientes primero
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              VENTAJAS VS DESVENTAJAS                                       ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+VENTAJAS:
+✅ Velocidad: Respuestas instantáneas (< 1 seg)
+✅ Rendimiento: Menos carga en servidor y BD
+✅ Escalabilidad: Funciona con 100 o 1,000,000 de registros
+✅ UX: Mejor experiencia de usuario
+✅ Ancho de banda: Menos datos transferidos
+✅ SEO: Páginas más rápidas = mejor ranking en Google
+
+DESVENTAJAS:
+❌ Complejidad: Más código que retornar todo
+❌ Múltiples requests: Si el usuario navega mucho
+❌ Frontend: Necesita manejar la paginación
+
+VEREDICTO:
+Las ventajas superan AMPLIAMENTE las desventajas.
+La paginación es ESENCIAL en aplicaciones reales.
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              COMPARACIÓN: CON vs SIN PAGINACIÓN                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+ESCENARIO: Tienda con 1,000 productos
+
+┌──────────────────────┬──────────────────────┬──────────────────────┐
+│                      │   SIN PAGINACIÓN     │   CON PAGINACIÓN     │
+├──────────────────────┼──────────────────────┼──────────────────────┤
+│ Datos transferidos   │ 5 MB                 │ 100 KB               │
+│ Tiempo de carga      │ 10 segundos          │ < 1 segundo          │
+│ Queries a BD         │ 1 (pesada)           │ 1 (ligera)           │
+│ Memoria en servidor  │ 50 MB                │ 1 MB                 │
+│ Experiencia usuario  │ ❌ Frustrante         │ ✅ Fluida             │
+│ Funciona en móvil    │ ❌ Lento/crash        │ ✅ Rápido             │
+│ Escalabilidad        │ ❌ NO escala          │ ✅ Escala infinito    │
+└──────────────────────┴──────────────────────┴──────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              MEJORES PRÁCTICAS                                             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+✅ SIEMPRE usa paginación para listas
+   → Productos, órdenes, reseñas, usuarios, etc.
+
+✅ SIEMPRE establece valores por defecto
+   → page=0, size=10, sort=id, direction=ASC
+
+✅ SIEMPRE valida los parámetros
+   → size máximo: 100 (evitar abusos)
+   → page mínimo: 0
+
+✅ SIEMPRE retorna metadata completa
+   → totalElements, totalPages, first, last
+
+✅ NUNCA retornes todos los datos sin paginar
+   → Aunque sean "pocos" (50+)
+
+✅ SIEMPRE ordena por algo consistente
+   → Si no especificas sort, usa createdAt o id
+
+✅ COMBINA paginación con filtros
+   → /api/products/category/1?page=0&size=20
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              PROBLEMAS COMUNES Y SOLUCIONES                                ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+PROBLEMA 1: "No veo el parámetro Pageable"
+CAUSA: Imports incorrectos
+SOLUCIÓN: 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+NO uses org.hibernate.query.Page ni java.awt.print.Pageable
+
+PROBLEMA 2: "El método del repository no funciona"
+CAUSA: Firma incorrecta
+SOLUCIÓN:
+Page<Product> findByActiveTrue(Pageable pageable);
+El retorno DEBE ser Page<> y recibir Pageable
+
+PROBLEMA 3: "Siempre retorna la misma página"
+CAUSA: Frontend no cambia el parámetro page
+SOLUCIÓN: Verificar que el botón "Siguiente" incremente page
+
+PROBLEMA 4: "totalPages siempre es 0"
+CAUSA: No hay datos o filtro muy restrictivo
+SOLUCIÓN: Verificar que existan registros en BD
+
+PROBLEMA 5: "Sort no funciona"
+CAUSA: Campo sort incorrecto
+SOLUCIÓN: El campo debe existir en la entidad
+Ejemplo: sort=price ✅  sort=precio ❌
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              RESUMEN                                                       ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+LO QUE APRENDIMOS:
+
+✅ Qué es paginación (dividir datos en páginas)
+✅ Por qué es esencial (velocidad, escalabilidad, UX)
+✅ Conceptos clave (page, size, sort, direction)
+✅ Cómo funciona por dentro (SQL con LIMIT y OFFSET)
+✅ Código implementado (Controller, Service, Repository)
+✅ Respuesta de endpoints paginados (estructura Page)
+✅ Casos de uso reales (catálogo, búsqueda, admin)
+✅ Ventajas vs desventajas (ventajas >> desventajas)
+✅ Mejores prácticas
+✅ Problemas comunes y soluciones
+
+ENDPOINTS IMPLEMENTADOS:
+
+PRODUCTOS:
+✅ GET /api/products?page=0&size=10
+✅ GET /api/products/search?keyword=X&page=0&size=10
+✅ GET /api/products/category/1?page=0&size=10
+✅ GET /api/products/featured?page=0&size=10
+✅ GET /api/products/sale?page=0&size=10
+
+ÓRDENES:
+✅ GET /api/orders/all?page=0&size=10
+✅ GET /api/orders/status/PENDING?page=0&size=10
+✅ GET /api/orders/customer/email@test.com?page=0&size=5
+
+RESEÑAS:
+✅ GET /api/reviews/product/1?page=0&size=10
+✅ GET /api/reviews/pending?page=0&size=20
+
+ARCHIVOS MODIFICADOS:
+- controller/ProductController.java
+- controller/OrderController.java
+- controller/ReviewController.java
+- service/ProductService.java
+- service/OrderService.java
+- service/ReviewService.java
+- repository/ProductRepository.java
+- repository/OrderRepository.java
+- repository/ReviewRepository.java
+
+BENEFICIOS OBTENIDOS:
+✅ API 10x más rápida
+✅ Menos carga en servidor
+✅ Mejor experiencia de usuario
+✅ Aplicación escalable
+✅ Lista para producción
+
+================================================================================
+                            FIN DE APUNTES
+================================================================================
