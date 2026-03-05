@@ -3,13 +3,21 @@ package com.joyeria.joyeria_api.repository;
 import com.joyeria.joyeria_api.model.Product;
 import com.joyeria.joyeria_api.model.Review;
 import com.joyeria.joyeria_api.model.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-
+/**
+ * ReviewRepository class
+ *
+ * @Version: 1.0.1- 04 mar. 2026
+ * @Author: Matias Belmar - mati.belmar0625@gmail.com
+ * @Since: 1.0.0 - 14 feb. 2026
+ */
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
@@ -55,4 +63,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             @Param("userId") Long userId,
             @Param("productId") Long productId
     );
+
+    //obtener reseñas aprobadas por producto con paginacion
+    Page<Review> findByProductIdAndApprovedTrueOrderByCreatedAtDesc(Long productId, Pageable pageable);
+
+    //obtener reseñas pendientes con paginacion
+    Page<Review> findByApprovedFalseOrderByCreatedAtAsc(Pageable pageable);
 }
