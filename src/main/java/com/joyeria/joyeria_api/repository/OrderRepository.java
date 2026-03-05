@@ -3,6 +3,8 @@ package com.joyeria.joyeria_api.repository;
 import com.joyeria.joyeria_api.model.Order;
 import com.joyeria.joyeria_api.model.OrderStatus;
 import com.joyeria.joyeria_api.model.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -65,4 +67,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("cutoffTime") LocalDateTime cutoffTime
     );
 
+    Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    //obtiene las ordenes por estado (paginado)
+
+    Page<Order> findByStatus(OrderStatus status, Pageable pageable);
+
+    //obtiene las ordenes por email de cliente (paginado)
+    Page<Order> findByCustomerEmailOrderByCreatedAtDesc(String email, Pageable pageable);
 }
