@@ -11,13 +11,21 @@ import com.joyeria.joyeria_api.model.OrderStatus;
 import com.joyeria.joyeria_api.model.Product;
 import com.joyeria.joyeria_api.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-
+/**
+ * OrderService class
+ *
+ * @Version: 1.0.1- 02 mar. 2026
+ * @Author: Matias Belmar - mati.belmar0625@gmail.com
+ * @Since: 1.0.0 - 20 feb. 2026
+ */
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -88,7 +96,7 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    public  Order markOrderAsPaid(String paymentIntentId) {
+    public Order markOrderAsPaid(String paymentIntentId) {
         Order order = orderRepository.findByStripePaymentIntentId(paymentIntentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Order", "paymentIntentId", paymentIntentId
@@ -216,5 +224,20 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<Order> getRecentOrders() {
         return orderRepository.findRecentOrders(10);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Order> getAllOrdersPaginated(Pageable pageable) {
+        return orderRepository.findAllByOrderByCreatedAtDesc(pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Order> getOrdersByStatusPaginated(OrderStatus status, Pageable pageable) {
+        return orderRepository.findByStatus(status, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Order> getOrdersByCustomerPaginated(String email, Pageable pageable) {
+        return orderRepository.findByCustomerEmailOrderByCreatedAtDesc(email, pageable);
     }
 }
