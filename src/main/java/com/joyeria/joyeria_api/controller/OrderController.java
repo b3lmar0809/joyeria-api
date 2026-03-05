@@ -5,6 +5,10 @@ import com.joyeria.joyeria_api.model.Order;
 import com.joyeria.joyeria_api.model.OrderStatus;
 import com.joyeria.joyeria_api.service.OrderService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -21,7 +25,13 @@ import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-
+/**
+ * OrderController class
+ *
+ * @Version: 1.0.1- 02 mar. 2026
+ * @Author: Matias Belmar - mati.belmar0625@gmail.com
+ * @Since: 1.0.0 - 14 feb. 2026
+ */
 @RestController
 @RequestMapping("/api/orders")
 @CrossOrigin(origins = "${cors.allowed.origins}")
@@ -40,18 +50,6 @@ public class OrderController {
     public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
         Order order = orderService.getOrderById(id);
         return ResponseEntity.ok(order);
-    }
-
-    @GetMapping("/customer/{email}")
-    public ResponseEntity<List<Order>> getOrdersByEmail(@PathVariable String email) {
-        List<Order> orders = orderService.getOrdersByEmail(email);
-        return ResponseEntity.ok(orders);
-    }
-
-    @GetMapping("/status/{status}")
-    public ResponseEntity<List<Order>> getOrdersByStatus(@PathVariable OrderStatus status) {
-        List<Order> orders = orderService.getOrdersByStatus(status);
-        return ResponseEntity.ok(orders);
     }
 
     //obtener las ultimas 10 ordenes
@@ -130,5 +128,49 @@ public class OrderController {
         public void setTrackingNumber(String trackingNumber) {
             this.trackingNumber = trackingNumber;
         }
+    }
+    // ========== ENDPOINTS CON PAGINACIÓN ==========
+
+    //obtioen todas las orden con paginacion para el admin
+    @GetMapping("/all")
+    public ResponseEntity<Page<Order>> getAllOrdersPaginated(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sort,
+            @RequestParam(defaultValue = "DESC") String direction
+    ) {
+        Sort.Direction sortDirection = direction.equalsIgnoreCase("DESC")
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
+        Page<Order> orders = orderService.getAllOrdersPaginated(pageable);
+
+        return ResponseEntity.ok(orders);
+    }
+    //obtiene las ordenes por estado de paginacion
+    @GetMapping("/status/{status}")
+    public ResponseEntity<Page<Order>> getOrdersByStatusPaginated(
+            @PathVariable OrderStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Order> orders = orderService.getOrdersByStatusPaginated(status, pageable);
+
+        return ResponseEntity.ok(orders);
+    }
+
+   //obtiene las ordenes por paginacion
+    @GetMapping("/customer/{email}")
+    public ResponseEntity<Page<Order>> getOrdersByCustomerPaginated(
+            @PathVariable String email,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Order> orders = orderService.getOrdersByCustomerPaginated(email, pageable);
+
+        return ResponseEntity.ok(orders);
     }
 }
