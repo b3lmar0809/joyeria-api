@@ -7,11 +7,19 @@ import com.joyeria.joyeria_api.model.Product;
 import com.joyeria.joyeria_api.model.Review;
 import com.joyeria.joyeria_api.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-
+/**
+ * ReviewService class
+ *
+ * @Version: 1.0.1- 04 mar. 2026
+ * @Author: Matias Belmar - mati.belmar0625@gmail.com
+ * @Since: 1.0.0 - 14 feb. 2026
+ */
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -141,5 +149,18 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public Boolean hasUserReviewedProduct(Long userId, Long productId) {
         return reviewRepository.existsByUserIdAndProductId(userId, productId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Review> getApprovedReviewsByProductPaginated(Long productId, Pageable pageable) {
+        return reviewRepository.findByProductIdAndApprovedTrueOrderByCreatedAtDesc(productId, pageable);
+    }
+
+    /**
+     * Obtener reseñas pendientes con paginación
+     */
+    @Transactional(readOnly = true)
+    public Page<Review> getPendingReviewsPaginated(Pageable pageable) {
+        return reviewRepository.findByApprovedFalseOrderByCreatedAtAsc(pageable);
     }
 }
