@@ -97,12 +97,6 @@ public class ReviewController {
         return ResponseEntity.ok(review);
     }
 
-    @GetMapping("/product/{productId}")
-    public ResponseEntity<List<Review>> getReviewsByProduct(@PathVariable Long productId) {
-        List<Review> reviews = reviewService.getApprovedReviewsByProduct(productId);
-        return ResponseEntity.ok(reviews);
-    }
-
     @GetMapping("/product/{productId}/average")
     public ResponseEntity<Double> getAverageRating(@PathVariable Long productId) {
         Double average = reviewService.getAverageRating(productId);
@@ -163,12 +157,6 @@ public class ReviewController {
         Boolean hasReviewed = reviewService.hasUserReviewedProduct(userId, productId);
         CheckUserReviewResponse response = new CheckUserReviewResponse(hasReviewed);
         return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/pending")
-    public ResponseEntity<List<Review>> getPendingReviews() {
-        List<Review> reviews = reviewService.getPendingReviews();
-        return ResponseEntity.ok(reviews);
     }
 
     @PutMapping("/{id}")
