@@ -1,0 +1,295 @@
+COLLARES
+{
+"name":"Collar Diamond Prestige",
+"description":"Collar elegante de oro blanco con diamante central",
+"price":42000.00,
+"stock":10,
+"sku":"COL-002",
+"category":{"id":2},
+"material":{"id":4},
+"weight":16.5,
+"dimensions":"50cm",
+"gemstones":"Diamante",
+"images":["collar_2.jpg"],
+"featured":true
+}
+{
+"name":"Collar Zafiro Imperial",
+"description":"Collar de lujo con zafiro natural y diamantes",
+"price":46500.00,
+"stock":7,
+"sku":"COL-003",
+"category":{"id":2},
+"material":{"id":1},
+"weight":17,
+"dimensions":"48cm",
+"gemstones":"Zafiro",
+"images":["collar_3.jpg"],
+"featured":true
+}
+{
+"name":"Collar Emerald Royal",
+"description":"Collar refinado con esmeralda natural",
+"price":43800.00,
+"stock":8,
+"sku":"COL-004",
+"category":{"id":2},
+"material":{"id":1},
+"weight":15,
+"dimensions":"47cm",
+"gemstones":"Esmeralda",
+"images":["collar_4.jpg"],
+"featured":true
+}
+{
+"name":"Collar Luxury Pearl",
+"description":"Collar sofisticado con perla natural",
+"price":29800.00,
+"stock":12,
+"sku":"COL-005",
+"category":{"id":2},
+"material":{"id":2},
+"weight":14,
+"dimensions":"46cm",
+"gemstones":"Perla",
+"images":["collar_5.jpg"],
+"featured":false
+}
+{
+"name":"Collar Diamond Classic",
+"description":"Collar minimalista con diamante brillante",
+"price":35500.00,
+"stock":9,
+"sku":"COL-006",
+"category":{"id":2},
+"material":{"id":4},
+"weight":14,
+"dimensions":"45cm",
+"gemstones":"Diamante",
+"images":["collar_6.jpg"],
+"featured":true
+}
+{
+"name":"Collar Sapphire Luxury",
+"description":"Collar elegante con zafiro azul",
+"price":38900.00,
+"stock":8,
+"sku":"COL-007",
+"category":{"id":2},
+"material":{"id":3},
+"weight":16,
+"dimensions":"48cm",
+"gemstones":"Zafiro",
+"images":["collar_7.jpg"],
+"featured":false
+}
+{
+"name":"Collar Platinum Diamond",
+"description":"Collar premium con diamantes montados en platino",
+"price":52000.00,
+"stock":6,
+"sku":"COL-008",
+"category":{"id":2},
+"material":{"id":3},
+"weight":17,
+"dimensions":"49cm",
+"gemstones":"Diamantes",
+"images":["collar_8.jpg"],
+"featured":true
+}
+{
+"name":"Collar Elegant Ruby",
+"description":"Collar refinado con rubí natural",
+"price":40100.00,
+"stock":7,
+"sku":"COL-009",
+"category":{"id":2},
+"material":{"id":1},
+"weight":15,
+"dimensions":"47cm",
+"gemstones":"Rubí",
+"images":["collar_9.jpg"],
+"featured":false
+}
+{
+"name":"Collar Diamond Infinity",
+"description":"Collar de lujo con símbolo infinito en diamantes",
+"price":37800.00,
+"stock":11,
+"sku":"COL-010",
+"category":{"id":2},
+"material":{"id":4},
+"weight":15,
+"dimensions":"46cm",
+"gemstones":"Diamantes",
+"images":["collar_10.jpg"],
+"featured":true
+}
+{
+"name":"Collar Prestige Chain",
+"description":"Cadena elegante de oro 18K",
+"price":22000.00,
+"stock":14,
+"sku":"COL-011",
+"category":{"id":2},
+"material":{"id":1},
+"weight":13,
+"dimensions":"45cm",
+"images":["collar_11.jpg"],
+"featured":false
+}
+
+ARETES
+{
+"name":"Pulsera Diamond Royal",
+"description":"Pulsera elegante con diamantes",
+"price":35500.00,
+"stock":12,
+"sku":"PUL-002",
+"category":{"id":3},
+"material":{"id":4},
+"weight":17,
+"dimensions":"19cm",
+"gemstones":"Diamantes",
+"images":["pulsera_2.jpg"],
+"featured":true
+}
+{
+"name":"Pulsera Emerald Luxury",
+"description":"Pulsera con esmeraldas naturales",
+"price":33200.00,
+"stock":10,
+"sku":"PUL-003",
+"category":{"id":3},
+"material":{"id":1},
+"weight":16,
+"dimensions":"18cm",
+"gemstones":"Esmeralda",
+"images":["pulsera_3.jpg"],
+"featured":true
+}
+{
+"name":"Pulsera Sapphire Prestige",
+"description":"Pulsera de lujo con zafiros",
+"price":34800.00,
+"stock":9,
+"sku":"PUL-004",
+"category":{"id":3},
+"material":{"id":4},
+"weight":15,
+"dimensions":"18cm",
+"gemstones":"Zafiro",
+"images":["pulsera_4.jpg"],
+"featured":false
+}
+{
+"name":"Pulsera Gold Classic",
+"description":"Pulsera clásica de oro 18K",
+"price":21000.00,
+"stock":18,
+"sku":"PUL-005",
+"category":{"id":3},
+"material":{"id":1},
+"weight":14,
+"dimensions":"18cm",
+"images":["pulsera_5.jpg"],
+"featured":false
+}
+{
+"name":"Pulsera Silver Elegant",
+"description":"Pulsera elegante de plata 925",
+"price":9800.00,
+"stock":22,
+"sku":"PUL-006",
+"category":{"id":3},
+"material":{"id":2},
+"weight":13,
+"dimensions":"18cm",
+"images":["pulsera_6.jpg"],
+"featured":false
+}
+
+ARETES
+
+{
+"name":"Aretes Diamond Drop",
+"description":"Aretes colgantes con diamantes",
+"price":21000.00,
+"stock":18,
+"sku":"ARE-001",
+"category":{"id":4},
+"material":{"id":4},
+"weight":6,
+"dimensions":"3cm",
+"gemstones":"Diamantes",
+"images":["aretes_1.jpg"],
+"featured":true
+}
+{
+"name":"Aretes Sapphire Royal",
+"description":"Aretes elegantes con zafiros",
+"price":23500.00,
+"stock":12,
+"sku":"ARE-002",
+"category":{"id":4},
+"material":{"id":1},
+"weight":5,
+"dimensions":"2.5cm",
+"gemstones":"Zafiro",
+"images":["aretes_2.jpg"],
+"featured":true
+}
+{
+"name":"Aretes Emerald Luxury",
+"description":"Aretes sofisticados con esmeraldas",
+"price":24200.00,
+"stock":10,
+"sku":"ARE-003",
+"category":{"id":4},
+"material":{"id":3},
+"weight":5,
+"dimensions":"2.5cm",
+"gemstones":"Esmeralda",
+"images":["aretes_3.jpg"],
+"featured":true
+}
+RELOJES
+{
+"name":"Reloj Chronograph Prestige",
+"description":"Reloj de lujo con cronógrafo y cristal de zafiro",
+"price":72000.00,
+"stock":6,
+"sku":"REL-001",
+"category":{"id":5},
+"material":{"id":5},
+"weight":120,
+"dimensions":"42mm",
+"images":["reloj_1.jpg"],
+"featured":true
+}
+{
+"name":"Reloj Classic Steel",
+"description":"Reloj elegante de acero inoxidable",
+"price":61500.00,
+"stock":7,
+"sku":"REL-002",
+"category":{"id":5},
+"material":{"id":5},
+"weight":110,
+"dimensions":"41mm",
+"images":["reloj_2.jpg"],
+"featured":true
+}
+{
+"name":"Reloj Luxury Gold",
+"description":"Reloj premium con acabado en oro",
+"price":83000.00,
+"stock":4,
+"sku":"REL-003",
+"category":{"id":5},
+"material":{"id":1},
+"weight":125,
+"dimensions":"42mm",
+"images":["reloj_3.jpg"],
+"featured":true
+}
