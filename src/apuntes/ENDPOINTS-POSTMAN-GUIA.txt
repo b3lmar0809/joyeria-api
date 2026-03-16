@@ -288,7 +288,34 @@ Más ejemplos:
   "images": ["collar1.jpg"],
   "featured": true
 }
-
+{
+  "name": "Collar Diamante Elegance",
+  "description": "Collar de lujo en oro blanco con diamante central certificado",
+  "price": 42000.00,
+  "stock": 12,
+  "sku": "COL-002",
+  "category": {"id": 2},
+  "material": {"id": 4},
+  "weight": 16.5,
+  "dimensions": "50cm",
+  "gemstones": "Diamante 1.2ct",
+  "images": ["collar_diamante_elegance.jpg"],
+  "featured": true
+}
+{
+  "name": "Collar Zafiro Prestige",
+  "description": "Collar sofisticado con zafiro azul profundo rodeado de pequeños diamantes",
+  "price": 46500.00,
+  "stock": 8,
+  "sku": "COL-003",
+  "category": {"id": 2},
+  "material": {"id": 1},
+  "weight": 18.0,
+  "dimensions": "48cm",
+  "gemstones": "Zafiro + Diamantes",
+  "images": ["collar_zafiro_prestige.jpg"],
+  "featured": true
+}
 {
   "name": "Pulsera Eslabones Oro",
   "description": "Pulsera de eslabones en oro 18K",
@@ -302,7 +329,88 @@ Más ejemplos:
   "images": ["pulsera1.jpg"],
   "featured": true
 }
-
+{
+  "name": "Pulsera Diamond Royal",
+  "description": "Pulsera elegante con diamantes incrustados en oro blanco",
+  "price": 35500.00,
+  "stock": 14,
+  "sku": "PUL-002",
+  "category": {"id": 3},
+  "material": {"id": 4},
+  "weight": 17.0,
+  "dimensions": "19cm",
+  "gemstones": "Diamantes",
+  "images": ["pulsera_diamond_royal.jpg"],
+  "featured": true
+}
+{
+  "name": "Pulsera Esmeralda Classic",
+  "description": "Pulsera refinada con esmeraldas naturales montadas en oro 18K",
+  "price": 33200.00,
+  "stock": 11,
+  "sku": "PUL-003",
+  "category": {"id": 3},
+  "material": {"id": 1},
+  "weight": 16.5,
+  "dimensions": "18cm",
+  "gemstones": "Esmeraldas",
+  "images": ["pulsera_esmeralda_classic.jpg"],
+  "featured": true
+}
+{
+  "name": "Aretes Diamond Drop",
+  "description": "Aretes colgantes con diamantes talla brillante en oro blanco",
+  "price": 21000.00,
+  "stock": 18,
+  "sku": "ARE-001",
+  "category": {"id": 4},
+  "material": {"id": 4},
+  "weight": 6.5,
+  "dimensions": "3cm",
+  "gemstones": "Diamantes",
+  "images": ["aretes_diamond_drop.jpg"],
+  "featured": true
+}
+{
+  "name": "Aretes Zafiro Elegance",
+  "description": "Aretes de lujo con zafiros naturales y pequeños diamantes",
+  "price": 24500.00,
+  "stock": 13,
+  "sku": "ARE-002",
+  "category": {"id": 4},
+  "material": {"id": 3},
+  "weight": 6.0,
+  "dimensions": "2.5cm",
+  "gemstones": "Zafiros + Diamantes",
+  "images": ["aretes_zafiro_elegance.jpg"],
+  "featured": true
+}
+{
+  "name": "Reloj Chronograph Prestige",
+  "description": "Reloj de lujo con cronógrafo y cristal de zafiro",
+  "price": 72000.00,
+  "stock": 6,
+  "sku": "REL-001",
+  "category": {"id": 5},
+  "material": {"id": 5},
+  "weight": 120.0,
+  "dimensions": "42mm",
+  "images": ["reloj_chronograph_prestige.jpg"],
+  "featured": true
+}
+{
+  "name": "Reloj Classic Steel Luxury",
+  "description": "Reloj elegante de acero inoxidable con movimiento automático",
+  "price": 61500.00,
+  "stock": 7,
+  "sku": "REL-002",
+  "category": {"id": 5},
+  "material": {"id": 5},
+  "weight": 110.0,
+  "dimensions": "41mm",
+  "images": ["reloj_classic_steel.jpg"],
+  "featured": true
+}
 Producto con descuento:
 {
   "name": "Anillo Alianza Oro",
